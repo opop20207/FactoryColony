@@ -27,6 +27,7 @@ The factory is the primary game. Players must be able to progress through the ma
 
 ## Debug Scene
 Open `Assets/_Project/Scenes/BasePlanet/FactoryDebug.unity` in Unity and press Play to view the first debug grid.
+See `DEV_NOTES.md` for the current debug scene setup, controls, and limitations.
 
 Current visualization:
 - 10x10 grid on the XZ plane

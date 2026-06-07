@@ -29,6 +29,7 @@ namespace FactoryColony
         private BuildingSelectionController _buildingSelectionController;
         private BaseInventoryModel _baseInventory;
         private StorageCollectionController _storageCollectionController;
+        private FactoryDebugSaveController _saveController;
         private PowerModel _powerSnapshot;
         private GUIStyle _panelStyle;
         private GUIStyle _labelStyle;
@@ -103,6 +104,29 @@ namespace FactoryColony
             BaseInventoryModel baseInventory,
             StorageCollectionController storageCollectionController)
         {
+            Initialize(
+                simulation,
+                runner,
+                selector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                storageCollectionController,
+                null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory,
+            StorageCollectionController storageCollectionController,
+            FactoryDebugSaveController saveController)
+        {
             if (_runner != null)
             {
                 _runner.OnTickExecuted -= HandleTickExecuted;
@@ -121,6 +145,7 @@ namespace FactoryColony
             _buildingSelectionController = buildingSelectionController;
             _baseInventory = baseInventory;
             _storageCollectionController = storageCollectionController;
+            _saveController = saveController;
 
             if (_runner != null)
             {
@@ -208,9 +233,14 @@ namespace FactoryColony
             GUILayout.Label("Last Placement Result: " + GetLastPlacementResultText(), _labelStyle);
             GUILayout.Label("Hovered Building Id: " + GetHoveredBuildingIdText(), _labelStyle);
             GUILayout.Label("Hovered Building Type: " + GetHoveredBuildingTypeText(), _labelStyle);
+            GUILayout.Label("Selected Building Id: " + GetInspectedBuildingIdText(), _labelStyle);
             GUILayout.Label("Hovered Building Inventory: " + GetHoveredBuildingInventoryText(), _labelStyle);
             GUILayout.Label("Last Removal Result: " + GetLastRemovalResultText(), _labelStyle);
             GUILayout.Label("Press C: Collect Storage Resources", _labelStyle);
+            GUILayout.Label("F5: Save / F9: Load", _labelStyle);
+            GUILayout.Label("Save Path: " + GetSavePathText(), _labelStyle);
+            GUILayout.Label("Last Save Result: " + GetLastSaveResultText(), _labelStyle);
+            GUILayout.Label("Last Load Result: " + GetLastLoadResultText(), _labelStyle);
             GUILayout.Label("Last Collection Result: " + GetLastCollectionResultText(), _labelStyle);
             GUILayout.Space(6f);
             GUILayout.Label("Power Produced: " + power.ProducedPower, _labelStyle);
@@ -390,6 +420,17 @@ namespace FactoryColony
             return string.IsNullOrEmpty(result) ? "Empty" : result;
         }
 
+        private string GetInspectedBuildingIdText()
+        {
+            if (_buildingSelectionController == null
+                || !_buildingSelectionController.HasSelectedBuilding)
+            {
+                return "None";
+            }
+
+            return _buildingSelectionController.SelectedBuildingId;
+        }
+
         private string GetLastRemovalResultText()
         {
             if (_buildingSelectionController == null)
@@ -408,6 +449,21 @@ namespace FactoryColony
             }
 
             return _storageCollectionController.LastCollectionResult;
+        }
+
+        private string GetSavePathText()
+        {
+            return _saveController != null ? _saveController.SavePath : "N/A";
+        }
+
+        private string GetLastSaveResultText()
+        {
+            return _saveController != null ? _saveController.LastSaveResult : "N/A";
+        }
+
+        private string GetLastLoadResultText()
+        {
+            return _saveController != null ? _saveController.LastLoadResult : "N/A";
         }
 
         private int GetBaseInventoryAmount(ResourceType type)

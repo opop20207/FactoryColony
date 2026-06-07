@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace FactoryColony
 {
@@ -20,7 +21,7 @@ namespace FactoryColony
 
         private void Update()
         {
-            if (!Input.GetKeyDown(KeyCode.C))
+            if (!PlayerInputReader.WasKeyPressedThisFrame(Key.C))
             {
                 return;
             }

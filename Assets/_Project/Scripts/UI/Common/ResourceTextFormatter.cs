@@ -30,5 +30,42 @@ namespace FactoryColony
 
             return string.IsNullOrEmpty(result) ? "Free" : result;
         }
+
+        public static string FormatInventory(InventoryModel inventory)
+        {
+            if (inventory == null || inventory.IsEmpty)
+            {
+                return "Empty";
+            }
+
+            return FormatStacks(inventory.GetStacks());
+        }
+
+        public static string FormatStacks(IEnumerable<ResourceStack> stacks)
+        {
+            if (stacks == null)
+            {
+                return "Empty";
+            }
+
+            string result = string.Empty;
+
+            foreach (ResourceStack stack in stacks)
+            {
+                if (stack == null || stack.Type == ResourceType.None || stack.Amount <= 0)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    result += ", ";
+                }
+
+                result += stack.Type + " x" + stack.Amount;
+            }
+
+            return string.IsNullOrEmpty(result) ? "Empty" : result;
+        }
     }
 }

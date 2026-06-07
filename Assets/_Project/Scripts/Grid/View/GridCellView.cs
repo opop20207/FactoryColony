@@ -15,12 +15,12 @@ namespace FactoryColony
             Position = position;
             ResourceNodeType = resourceNodeType;
 
-            transform.localScale = new Vector3(cellSize * 0.95f, TileHeight, cellSize * 0.95f);
+            transform.localScale = new Vector3(cellSize * 0.92f, TileHeight, cellSize * 0.92f);
 
             Renderer renderer = GetComponent<Renderer>();
             if (renderer != null)
             {
-                renderer.material = CreateMaterial(GetCellColor(resourceNodeType));
+                renderer.material = MaterialFactory.CreateOpaque(GetCellColor(resourceNodeType));
             }
 
             if (resourceNodeType != ResourceType.None)
@@ -31,33 +31,27 @@ namespace FactoryColony
 
         private void CreateResourceNodeMarker(float cellSize)
         {
-            GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            marker.name = $"ResourceNode_{Position.X}_{Position.Y}";
-            marker.transform.SetParent(transform, false);
-            marker.transform.localPosition = new Vector3(0f, 5f, 0f);
-            marker.transform.localScale = new Vector3(
-                ResourceNodeHeight / 0.95f,
-                ResourceNodeHeight / TileHeight,
-                ResourceNodeHeight / 0.95f);
-
-            Renderer markerRenderer = marker.GetComponent<Renderer>();
-            if (markerRenderer != null)
-            {
-                markerRenderer.material = CreateMaterial(GetResourceNodeColor(ResourceNodeType));
-            }
+            CreateResourceRock("ResourceNode_" + Position.X + "_" + Position.Y + "_A", new Vector3(-0.16f, 3.9f, 0.04f), new Vector3(0.22f, 2.7f, 0.2f), cellSize);
+            CreateResourceRock("ResourceNode_" + Position.X + "_" + Position.Y + "_B", new Vector3(0.11f, 3.5f, -0.13f), new Vector3(0.18f, 2.2f, 0.18f), cellSize);
+            CreateResourceRock("ResourceNode_" + Position.X + "_" + Position.Y + "_C", new Vector3(0.16f, 3.2f, 0.14f), new Vector3(0.14f, 1.8f, 0.14f), cellSize);
         }
 
-        private static Material CreateMaterial(Color color)
+        private void CreateResourceRock(string objectName, Vector3 localPosition, Vector3 localScale, float cellSize)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-            }
+            GameObject rock = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            rock.name = objectName;
+            rock.transform.SetParent(transform, false);
+            rock.transform.localPosition = localPosition;
+            rock.transform.localScale = new Vector3(
+                localScale.x * cellSize,
+                localScale.y * ResourceNodeHeight,
+                localScale.z * cellSize);
 
-            Material material = new Material(shader);
-            material.color = color;
-            return material;
+            Renderer markerRenderer = rock.GetComponent<Renderer>();
+            if (markerRenderer != null)
+            {
+                markerRenderer.material = MaterialFactory.CreateOpaque(VisualStyleConfig.GetResourceColor(ResourceNodeType));
+            }
         }
 
         private static Color GetCellColor(ResourceType resourceType)
@@ -65,28 +59,13 @@ namespace FactoryColony
             switch (resourceType)
             {
                 case ResourceType.IronOre:
-                    return new Color(0.35f, 0.36f, 0.38f);
+                    return VisualStyleConfig.GroundResourceTint;
                 case ResourceType.CopperOre:
-                    return new Color(0.58f, 0.32f, 0.18f);
+                    return VisualStyleConfig.GroundResourceTint;
                 case ResourceType.Coal:
-                    return new Color(0.08f, 0.08f, 0.09f);
+                    return VisualStyleConfig.GroundResourceTint;
                 default:
-                    return new Color(0.42f, 0.45f, 0.42f);
-            }
-        }
-
-        private static Color GetResourceNodeColor(ResourceType resourceType)
-        {
-            switch (resourceType)
-            {
-                case ResourceType.IronOre:
-                    return new Color(0.72f, 0.74f, 0.78f);
-                case ResourceType.CopperOre:
-                    return new Color(0.95f, 0.48f, 0.22f);
-                case ResourceType.Coal:
-                    return new Color(0.01f, 0.01f, 0.01f);
-                default:
-                    return Color.clear;
+                    return VisualStyleConfig.GroundColor;
             }
         }
     }

@@ -65,7 +65,7 @@ namespace FactoryColony
         private bool TryGetMouseWorldPosition(out Vector3 worldPosition)
         {
             Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
-            Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+            Ray ray = targetCamera.ScreenPointToRay(PlayerInputReader.GetMousePosition());
 
             if (!groundPlane.Raycast(ray, out float distance))
             {
@@ -111,7 +111,7 @@ namespace FactoryColony
             Renderer renderer = _highlightObject.GetComponent<Renderer>();
             if (renderer != null)
             {
-                renderer.material = CreateHighlightMaterial();
+                renderer.material = MaterialFactory.CreateTransparent(VisualStyleConfig.HoverColor);
             }
 
             _highlightObject.SetActive(false);
@@ -136,24 +136,5 @@ namespace FactoryColony
             _highlightObject.SetActive(true);
         }
 
-        private static Material CreateHighlightMaterial()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-            }
-
-            Material material = new Material(shader);
-            material.color = new Color(1f, 0.95f, 0.15f, 0.55f);
-            material.SetFloat("_Surface", 1f);
-            material.SetFloat("_Blend", 0f);
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            material.SetInt("_ZWrite", 0);
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return material;
-        }
     }
 }

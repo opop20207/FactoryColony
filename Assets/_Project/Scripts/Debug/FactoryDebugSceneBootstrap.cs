@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace FactoryColony
@@ -19,39 +20,134 @@ namespace FactoryColony
         [SerializeField] private Canvas debugCanvas;
         [SerializeField] private BuildMenuView buildMenuView;
         [SerializeField] private BuildMenuController buildMenuController;
+        [SerializeField] private BuildingDetailPanelView buildingDetailPanelView;
+        [SerializeField] private BuildingDetailPanelController buildingDetailPanelController;
+        [SerializeField] private GoalHudView goalHudView;
+        [SerializeField] private GoalUpdateController goalUpdateController;
+        [SerializeField] private FactoryDebugSaveController saveController;
+
+        private bool _initialized;
 
         private void Start()
         {
-            EnsureViews();
-            GridModel model = gridView.CreateDefaultModel();
-            model.SetResourceNode(new GridPosition(1, 1), ResourceType.IronOre);
-            model.SetResourceNode(new GridPosition(3, 2), ResourceType.CopperOre);
-            model.SetResourceNode(new GridPosition(5, 5), ResourceType.Coal);
+            InitializeDebugScene();
+        }
 
-            PlaceDebugBuildings(model);
-            FactorySimulation simulation = new FactorySimulation(model);
-            BaseInventoryModel baseInventory = CreateBaseInventory();
-            StorageCollector storageCollector = new StorageCollector(model, baseInventory);
+        private void InitializeDebugScene()
+        {
+            if (_initialized)
+            {
+                return;
+            }
 
-            gridView.Build(model);
-            buildingViewFactory.Build(model, gridView.CellSize);
-            gridMouseSelector.Initialize(model, gridView.CellSize);
-            placementPreview.Initialize(model, gridMouseSelector, gridView.CellSize, baseInventory);
-            placementController.Initialize(model, gridMouseSelector, placementPreview, buildingViewFactory, gridView.CellSize, baseInventory);
-            buildingSelectionController.Initialize(model, gridMouseSelector, buildingViewFactory, gridView.CellSize, baseInventory);
-            debugBuildingSelectionController.Initialize(placementPreview);
-            storageCollectionController.Initialize(storageCollector);
-            buildMenuController.Initialize(buildMenuView, placementPreview, DebugBuildingDefinitions.GetBuildMenuDefinitions());
-            simulationTickRunner.Initialize(simulation);
-            debugHud.Initialize(
-                simulation,
-                simulationTickRunner,
-                gridMouseSelector,
-                placementPreview,
-                placementController,
-                buildingSelectionController,
-                baseInventory,
-                storageCollectionController);
+            string initializationStep = "Begin";
+
+            try
+            {
+                initializationStep = "Create and connect view components";
+                EnsureViews();
+
+                initializationStep = "Create GridModel";
+                GridModel model = CreateGridModel();
+
+                initializationStep = "Add resource nodes";
+                AddResourceNodes(model);
+
+                initializationStep = "Create BaseInventoryModel";
+                BaseInventoryModel baseInventory = CreateBaseInventory();
+
+                initializationStep = "Create GoalTracker";
+                GoalTracker goalTracker = CreateGoalTracker(baseInventory);
+
+                initializationStep = "Place initial buildings";
+                PlaceDebugBuildings(model);
+
+                initializationStep = "Create FactorySimulation";
+                FactorySimulation simulation = new FactorySimulation(model);
+
+                initializationStep = "Create StorageCollector";
+                StorageCollector storageCollector = new StorageCollector(model, baseInventory);
+
+                initializationStep = "Setup camera";
+                SetupCamera();
+                VisualSceneSetup.ApplyDebugLighting();
+
+                initializationStep = "Build grid view";
+                gridView.Build(model);
+
+                initializationStep = "Build building views";
+                buildingViewFactory.Build(model, gridView.CellSize);
+
+                initializationStep = "Setup mouse selector";
+                gridMouseSelector.Initialize(model, gridView.CellSize);
+
+                initializationStep = "Setup placement preview";
+                placementPreview.Initialize(model, gridMouseSelector, gridView.CellSize, baseInventory);
+
+                initializationStep = "Setup placement controller";
+                placementController.Initialize(model, gridMouseSelector, placementPreview, buildingViewFactory, gridView.CellSize, baseInventory);
+
+                initializationStep = "Setup building selection controller";
+                buildingSelectionController.Initialize(model, gridMouseSelector, buildingViewFactory, gridView.CellSize, baseInventory);
+
+                initializationStep = "Setup building detail panel";
+                buildingDetailPanelController.Initialize(buildingSelectionController, buildingDetailPanelView);
+
+                initializationStep = "Setup number-key selection controller";
+                debugBuildingSelectionController.Initialize(placementPreview);
+
+                initializationStep = "Setup storage collection controller";
+                storageCollectionController.Initialize(storageCollector);
+
+                initializationStep = "Setup goals";
+                goalHudView.Initialize(goalTracker);
+                goalUpdateController.Initialize(goalTracker, simulationTickRunner, storageCollectionController);
+
+                initializationStep = "Setup save controller";
+                saveController.Initialize(
+                    model,
+                    baseInventory,
+                    goalTracker,
+                    simulation,
+                    gridView,
+                    buildingViewFactory,
+                    gridMouseSelector,
+                    placementPreview,
+                    placementController,
+                    buildingSelectionController,
+                    buildingDetailPanelView,
+                    buildingDetailPanelController,
+                    simulationTickRunner,
+                    storageCollectionController,
+                    debugHud,
+                    goalHudView,
+                    goalUpdateController,
+                    gridView.CellSize);
+
+                initializationStep = "Setup build menu";
+                buildMenuController.Initialize(buildMenuView, placementPreview, DebugBuildingDefinitions.GetBuildMenuDefinitions());
+
+                initializationStep = "Setup tick runner";
+                simulationTickRunner.Initialize(simulation);
+
+                initializationStep = "Setup debug HUD";
+                debugHud.Initialize(
+                    simulation,
+                    simulationTickRunner,
+                    gridMouseSelector,
+                    placementPreview,
+                    placementController,
+                    buildingSelectionController,
+                    baseInventory,
+                    storageCollectionController,
+                    saveController);
+
+                _initialized = true;
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError("FactoryDebugSceneBootstrap failed during step '" + initializationStep + "': " + exception);
+            }
         }
 
         private void EnsureViews()
@@ -166,8 +262,38 @@ namespace FactoryColony
                 storageCollectionController = collectionObject.AddComponent<StorageCollectionController>();
             }
 
+            if (saveController == null)
+            {
+                saveController = FindObjectOfType<FactoryDebugSaveController>();
+            }
+
+            if (saveController == null)
+            {
+                GameObject saveObject = new GameObject("FactoryDebugSaveController");
+                saveController = saveObject.AddComponent<FactoryDebugSaveController>();
+            }
+
             EnsureBuildMenu();
+            EnsureBuildingDetailPanel();
+            EnsureGoalHud();
             EnsureCameraController();
+        }
+
+        private GridModel CreateGridModel()
+        {
+            if (gridView == null)
+            {
+                throw new System.InvalidOperationException("GridView is missing.");
+            }
+
+            return gridView.CreateDefaultModel();
+        }
+
+        private static void AddResourceNodes(GridModel model)
+        {
+            model.SetResourceNode(new GridPosition(1, 1), ResourceType.IronOre);
+            model.SetResourceNode(new GridPosition(1, 3), ResourceType.CopperOre);
+            model.SetResourceNode(new GridPosition(1, 5), ResourceType.Coal);
         }
 
         private void EnsureBuildMenu()
@@ -219,14 +345,100 @@ namespace FactoryColony
             }
         }
 
-        private static void EnsureEventSystem()
+        private void EnsureBuildingDetailPanel()
         {
-            if (FindObjectOfType<EventSystem>() != null)
+            EnsureEventSystem();
+
+            if (debugCanvas == null)
             {
-                return;
+                debugCanvas = FindObjectOfType<Canvas>();
             }
 
-            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            if (debugCanvas == null)
+            {
+                GameObject canvasObject = new GameObject("FactoryDebugCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                debugCanvas = canvasObject.GetComponent<Canvas>();
+                debugCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+            }
+
+            if (debugCanvas.GetComponent<GraphicRaycaster>() == null)
+            {
+                debugCanvas.gameObject.AddComponent<GraphicRaycaster>();
+            }
+
+            if (buildingDetailPanelView == null)
+            {
+                buildingDetailPanelView = FindObjectOfType<BuildingDetailPanelView>();
+            }
+
+            if (buildingDetailPanelView == null)
+            {
+                GameObject panelObject = new GameObject("BuildingDetailPanelView", typeof(RectTransform), typeof(BuildingDetailPanelView));
+                panelObject.transform.SetParent(debugCanvas.transform, false);
+                buildingDetailPanelView = panelObject.GetComponent<BuildingDetailPanelView>();
+            }
+
+            if (buildingDetailPanelController == null)
+            {
+                buildingDetailPanelController = FindObjectOfType<BuildingDetailPanelController>();
+            }
+
+            if (buildingDetailPanelController == null)
+            {
+                GameObject controllerObject = new GameObject("BuildingDetailPanelController");
+                buildingDetailPanelController = controllerObject.AddComponent<BuildingDetailPanelController>();
+            }
+        }
+
+        private void EnsureGoalHud()
+        {
+            if (goalHudView == null)
+            {
+                goalHudView = FindObjectOfType<GoalHudView>();
+            }
+
+            if (goalHudView == null)
+            {
+                GameObject goalHudObject = new GameObject("GoalHudView");
+                goalHudView = goalHudObject.AddComponent<GoalHudView>();
+            }
+
+            if (goalUpdateController == null)
+            {
+                goalUpdateController = FindObjectOfType<GoalUpdateController>();
+            }
+
+            if (goalUpdateController == null)
+            {
+                GameObject goalUpdateObject = new GameObject("GoalUpdateController");
+                goalUpdateController = goalUpdateObject.AddComponent<GoalUpdateController>();
+            }
+        }
+
+        private static void EnsureEventSystem()
+        {
+            EventSystem eventSystem = FindObjectOfType<EventSystem>();
+
+            if (eventSystem == null)
+            {
+                GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
+                eventSystem = eventSystemObject.GetComponent<EventSystem>();
+            }
+
+            StandaloneInputModule oldInputModule = eventSystem.GetComponent<StandaloneInputModule>();
+            if (oldInputModule != null)
+            {
+                Destroy(oldInputModule);
+            }
+
+            if (eventSystem.GetComponent<InputSystemUIInputModule>() == null)
+            {
+                eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
         }
 
         private static void EnsureCameraController()
@@ -246,6 +458,28 @@ namespace FactoryColony
             }
         }
 
+        private static void SetupCamera()
+        {
+            Camera camera = Camera.main;
+
+            if (camera == null)
+            {
+                GameObject cameraObject = new GameObject("Main Camera");
+                cameraObject.tag = "MainCamera";
+                camera = cameraObject.AddComponent<Camera>();
+            }
+
+            camera.orthographic = true;
+            camera.orthographicSize = 7.4f;
+            camera.transform.position = new Vector3(4.5f, 9.5f, -7.4f);
+            camera.transform.rotation = Quaternion.Euler(58f, 0f, 0f);
+
+            if (camera.GetComponent<CameraController>() == null)
+            {
+                camera.gameObject.AddComponent<CameraController>();
+            }
+        }
+
         private void PlaceDebugBuildings(GridModel model)
         {
             TryPlace(model, CreateBuilding("miner-iron-1", DebugBuildingDefinitions.Get(BuildingType.Miner), new GridPosition(1, 1), BuildingDirection.East));
@@ -255,8 +489,22 @@ namespace FactoryColony
             TryPlace(model, CreateIronPlateAssembler(new GridPosition(5, 1), BuildingDirection.East));
             TryPlace(model, CreateBuilding("conveyor-plate-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(6, 1), BuildingDirection.East));
             TryPlace(model, CreateBuilding("storage-output-1", DebugBuildingDefinitions.Get(BuildingType.Storage), new GridPosition(7, 1), BuildingDirection.North));
+
+            TryPlace(model, CreateBuilding("miner-copper-1", DebugBuildingDefinitions.Get(BuildingType.Miner), new GridPosition(1, 3), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-copper-ore-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(2, 3), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("smelter-copper-1", DebugBuildingDefinitions.Get(BuildingType.Smelter), new GridPosition(3, 3), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-copper-ingot-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(4, 3), BuildingDirection.East));
+            TryPlace(model, CreateCopperWireAssembler(new GridPosition(5, 3), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-wire-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(6, 3), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("storage-wire-1", DebugBuildingDefinitions.Get(BuildingType.Storage), new GridPosition(7, 3), BuildingDirection.North));
+
+            TryPlace(model, CreateSeededGearAssembler(new GridPosition(5, 5), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-gear-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(6, 5), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("storage-gear-1", DebugBuildingDefinitions.Get(BuildingType.Storage), new GridPosition(7, 5), BuildingDirection.North));
+
             TryPlace(model, CreateBuilding("generator-1", DebugBuildingDefinitions.Get(BuildingType.Generator), new GridPosition(0, 6), BuildingDirection.East));
             TryPlace(model, CreateBuilding("generator-2", DebugBuildingDefinitions.Get(BuildingType.Generator), new GridPosition(1, 6), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("generator-3", DebugBuildingDefinitions.Get(BuildingType.Generator), new GridPosition(2, 6), BuildingDirection.East));
         }
 
         private static BuildingModel CreateBuilding(
@@ -280,14 +528,44 @@ namespace FactoryColony
             return assembler;
         }
 
+        private static BuildingModel CreateCopperWireAssembler(GridPosition origin, BuildingDirection direction)
+        {
+            BuildingModel assembler = CreateBuilding(
+                "assembler-copper-wire-1",
+                DebugBuildingDefinitions.Get(BuildingType.Assembler),
+                origin,
+                direction);
+
+            assembler.SelectedRecipeId = RecipeCatalog.CopperWireRecipeId;
+            return assembler;
+        }
+
+        private static BuildingModel CreateSeededGearAssembler(GridPosition origin, BuildingDirection direction)
+        {
+            BuildingModel assembler = CreateBuilding(
+                "assembler-gear-1",
+                DebugBuildingDefinitions.Get(BuildingType.Assembler),
+                origin,
+                direction);
+
+            assembler.SelectedRecipeId = RecipeCatalog.GearRecipeId;
+            assembler.Inventory.Add(ResourceType.IronPlate, 10);
+            return assembler;
+        }
+
         private static BaseInventoryModel CreateBaseInventory()
         {
             BaseInventoryModel inventory = new BaseInventoryModel();
-            inventory.Add(ResourceType.IronPlate, 100);
-            inventory.Add(ResourceType.CopperWire, 100);
-            inventory.Add(ResourceType.Gear, 20);
-            inventory.Add(ResourceType.BasicCircuit, 10);
+            inventory.Add(ResourceType.IronPlate, 20);
+            inventory.Add(ResourceType.CopperWire, 20);
             return inventory;
+        }
+
+        private static GoalTracker CreateGoalTracker(BaseInventoryModel baseInventory)
+        {
+            return new GoalTracker(
+                baseInventory,
+                DebugGoalDefinitions.CreateGoals());
         }
 
         private static void TryPlace(GridModel model, BuildingModel building)
@@ -297,7 +575,11 @@ namespace FactoryColony
                 return;
             }
 
-            Debug.LogWarning($"Failed to place debug building '{building.InstanceId}' at {building.Origin}.");
+            Debug.LogWarning(
+                "Failed to place debug building '" + building.InstanceId
+                + "' type '" + building.Definition.Type
+                + "' at " + building.Origin
+                + " direction '" + building.Direction + "'.");
         }
     }
 }

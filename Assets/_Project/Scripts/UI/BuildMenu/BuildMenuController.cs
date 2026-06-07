@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace FactoryColony
 {
@@ -43,7 +44,7 @@ namespace FactoryColony
 
         private void Update()
         {
-            if (_preview == null || !Input.GetKeyDown(KeyCode.Escape))
+            if (_preview == null || !PlayerInputReader.WasKeyPressedThisFrame(Key.Escape))
             {
                 return;
             }

@@ -63,7 +63,7 @@ namespace FactoryColony
 
         private void Update()
         {
-            if (!Input.GetMouseButtonDown(0))
+            if (!PlayerInputReader.WasLeftMousePressedThisFrame())
             {
                 return;
             }

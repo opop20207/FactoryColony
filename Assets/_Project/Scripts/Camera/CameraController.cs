@@ -29,8 +29,9 @@ namespace FactoryColony
 
         private void MoveCamera()
         {
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
+            Vector2 moveInput = PlayerInputReader.GetMoveInput();
+            float horizontal = moveInput.x;
+            float vertical = moveInput.y;
 
             if (Mathf.Approximately(horizontal, 0f) && Mathf.Approximately(vertical, 0f))
             {
@@ -43,7 +44,7 @@ namespace FactoryColony
 
         private void ZoomCamera()
         {
-            float scrollDelta = Input.mouseScrollDelta.y;
+            float scrollDelta = PlayerInputReader.GetMouseScrollY();
 
             if (Mathf.Approximately(scrollDelta, 0f))
             {

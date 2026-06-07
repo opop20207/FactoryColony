@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 namespace FactoryColony
 {
@@ -6,6 +8,8 @@ namespace FactoryColony
     {
         private const float HighlightHeight = 0.08f;
         private const float HighlightY = 0.82f;
+        private const float SelectionHighlightHeight = 0.1f;
+        private const float SelectionHighlightY = 0.92f;
 
         private GridModel _model;
         private GridMouseSelector _selector;
@@ -14,11 +18,24 @@ namespace FactoryColony
         private float _cellSize = 1f;
         private GameObject _highlightObject;
         private Material _highlightMaterial;
+        private GameObject _selectionHighlightObject;
+        private Material _selectionHighlightMaterial;
 
         public BuildingModel HoveredBuilding { get; private set; }
         public string HoveredBuildingId
         {
             get { return HoveredBuilding != null ? HoveredBuilding.InstanceId : string.Empty; }
+        }
+
+        public BuildingModel SelectedBuilding { get; private set; }
+        public string SelectedBuildingId
+        {
+            get { return SelectedBuilding != null ? SelectedBuilding.InstanceId : string.Empty; }
+        }
+
+        public bool HasSelectedBuilding
+        {
+            get { return SelectedBuilding != null; }
         }
 
         public string LastRemovalResult { get; private set; } = "None";
@@ -46,12 +63,16 @@ namespace FactoryColony
             _baseInventory = baseInventory;
             _cellSize = cellSize > 0f ? cellSize : 1f;
             EnsureHighlightObject();
+            EnsureSelectionHighlightObject();
             RefreshHoveredBuilding();
+            RefreshSelectedBuilding();
         }
 
         private void Update()
         {
             RefreshHoveredBuilding();
+            RefreshSelectedBuilding();
+            HandleSelectionInput();
             HandleRemovalInput();
         }
 
@@ -71,12 +92,60 @@ namespace FactoryColony
             }
 
             HoveredBuilding = building;
-            UpdateHighlight(building);
+            UpdateHighlight(_highlightObject, building, HighlightY, HighlightHeight);
+        }
+
+        private void RefreshSelectedBuilding()
+        {
+            if (SelectedBuilding == null)
+            {
+                HideSelectionHighlight();
+                return;
+            }
+
+            if (_model == null
+                || !_model.TryGetBuilding(SelectedBuilding.InstanceId, out BuildingModel currentBuilding))
+            {
+                ClearSelection();
+                return;
+            }
+
+            SelectedBuilding = currentBuilding;
+            UpdateHighlight(_selectionHighlightObject, SelectedBuilding, SelectionHighlightY, SelectionHighlightHeight);
+        }
+
+        public void ClearSelection()
+        {
+            SelectedBuilding = null;
+            HideSelectionHighlight();
+        }
+
+        private void HandleSelectionInput()
+        {
+            if (PlayerInputReader.WasKeyPressedThisFrame(Key.Escape))
+            {
+                ClearSelection();
+                return;
+            }
+
+            if (!PlayerInputReader.WasRightMousePressedThisFrame() || IsPointerOverUi())
+            {
+                return;
+            }
+
+            if (HoveredBuilding == null)
+            {
+                return;
+            }
+
+            SelectedBuilding = HoveredBuilding;
+            UpdateHighlight(_selectionHighlightObject, SelectedBuilding, SelectionHighlightY, SelectionHighlightHeight);
         }
 
         private void HandleRemovalInput()
         {
-            if (!Input.GetKeyDown(KeyCode.Delete) && !Input.GetKeyDown(KeyCode.Backspace))
+            if (!PlayerInputReader.WasKeyPressedThisFrame(Key.Delete)
+                && !PlayerInputReader.WasKeyPressedThisFrame(Key.Backspace))
             {
                 return;
             }
@@ -98,6 +167,12 @@ namespace FactoryColony
 
             LastRemovalSucceeded = true;
             LastRemovalResult = "Removed " + instanceId + RefundBuildCost(HoveredBuilding) + ".";
+
+            if (SelectedBuilding != null && SelectedBuilding.InstanceId == instanceId)
+            {
+                ClearSelection();
+            }
+
             HoveredBuilding = null;
             HideHighlight();
 
@@ -152,16 +227,40 @@ namespace FactoryColony
             Renderer renderer = _highlightObject.GetComponent<Renderer>();
             if (renderer != null)
             {
-                _highlightMaterial = CreateHighlightMaterial();
+                _highlightMaterial = MaterialFactory.CreateTransparent(new Color(1f, 1f, 1f, 0.32f));
                 renderer.material = _highlightMaterial;
             }
 
             _highlightObject.SetActive(false);
         }
 
-        private void UpdateHighlight(BuildingModel building)
+        private void EnsureSelectionHighlightObject()
         {
-            EnsureHighlightObject();
+            if (_selectionHighlightObject != null)
+            {
+                return;
+            }
+
+            _selectionHighlightObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _selectionHighlightObject.name = "BuildingSelectionHighlight";
+            _selectionHighlightObject.transform.SetParent(transform, false);
+
+            Renderer renderer = _selectionHighlightObject.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                _selectionHighlightMaterial = MaterialFactory.CreateTransparent(VisualStyleConfig.SelectionColor);
+                renderer.material = _selectionHighlightMaterial;
+            }
+
+            _selectionHighlightObject.SetActive(false);
+        }
+
+        private void UpdateHighlight(GameObject highlightObject, BuildingModel building, float yPosition, float highlightHeight)
+        {
+            if (highlightObject == null)
+            {
+                return;
+            }
 
             int minX = building.OccupiedPositions[0].X;
             int maxX = building.OccupiedPositions[0].X;
@@ -177,17 +276,17 @@ namespace FactoryColony
                 maxY = Mathf.Max(maxY, position.Y);
             }
 
-            int width = maxX - minX + 1;
-            int height = maxY - minY + 1;
+            int occupiedWidth = maxX - minX + 1;
+            int occupiedHeight = maxY - minY + 1;
             float centerX = (minX + maxX) * 0.5f;
             float centerY = (minY + maxY) * 0.5f;
 
-            _highlightObject.transform.localPosition = new Vector3(centerX * _cellSize, HighlightY, centerY * _cellSize);
-            _highlightObject.transform.localScale = new Vector3(
-                width * _cellSize,
-                HighlightHeight,
-                height * _cellSize);
-            _highlightObject.SetActive(true);
+            highlightObject.transform.localPosition = new Vector3(centerX * _cellSize, yPosition, centerY * _cellSize);
+            highlightObject.transform.localScale = new Vector3(
+                occupiedWidth * _cellSize,
+                highlightHeight,
+                occupiedHeight * _cellSize);
+            highlightObject.SetActive(true);
         }
 
         private void HideHighlight()
@@ -198,24 +297,17 @@ namespace FactoryColony
             }
         }
 
-        private static Material CreateHighlightMaterial()
+        private void HideSelectionHighlight()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
+            if (_selectionHighlightObject != null)
             {
-                shader = Shader.Find("Standard");
+                _selectionHighlightObject.SetActive(false);
             }
+        }
 
-            Material material = new Material(shader);
-            material.color = new Color(1f, 1f, 1f, 0.35f);
-            material.SetFloat("_Surface", 1f);
-            material.SetFloat("_Blend", 0f);
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            material.SetInt("_ZWrite", 0);
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return material;
+        private static bool IsPointerOverUi()
+        {
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         }
     }
 }

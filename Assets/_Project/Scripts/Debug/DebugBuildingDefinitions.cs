@@ -14,7 +14,7 @@ namespace FactoryColony
                         1,
                         1,
                         true,
-                        ResourceType.IronOre,
+                        ResourceType.None,
                         true,
                         0,
                         2,
@@ -95,6 +95,11 @@ namespace FactoryColony
         public static bool TryGet(BuildingType type, out BuildingDefinition definition)
         {
             return Definitions.TryGetValue(type, out definition);
+        }
+
+        public static IReadOnlyList<BuildingDefinition> GetAll()
+        {
+            return GetBuildMenuDefinitions();
         }
 
         public static IReadOnlyList<BuildingDefinition> GetBuildMenuDefinitions()

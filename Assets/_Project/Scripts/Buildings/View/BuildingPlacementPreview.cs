@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace FactoryColony
 {
@@ -109,7 +110,9 @@ namespace FactoryColony
 
         private void HandleRotationInput()
         {
-            if (SelectedBuilding == null || !SelectedBuilding.IsRotatable || !Input.GetKeyDown(KeyCode.R))
+            if (SelectedBuilding == null
+                || !SelectedBuilding.IsRotatable
+                || !PlayerInputReader.WasKeyPressedThisFrame(Key.R))
             {
                 return;
             }
@@ -210,8 +213,8 @@ namespace FactoryColony
             }
 
             _previewMaterial.color = canPlace
-                ? new Color(0.15f, 0.95f, 0.32f, 0.55f)
-                : new Color(1f, 0.15f, 0.12f, 0.55f);
+                ? VisualStyleConfig.PreviewValidColor
+                : VisualStyleConfig.PreviewInvalidColor;
         }
 
         private void EnsurePreviewObject()
@@ -228,7 +231,7 @@ namespace FactoryColony
 
             if (_previewRenderer != null)
             {
-                _previewMaterial = CreatePreviewMaterial();
+                _previewMaterial = MaterialFactory.CreateTransparent(VisualStyleConfig.PreviewValidColor);
                 _previewRenderer.material = _previewMaterial;
             }
         }
@@ -256,24 +259,5 @@ namespace FactoryColony
             }
         }
 
-        private static Material CreatePreviewMaterial()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-            }
-
-            Material material = new Material(shader);
-            material.color = new Color(0.15f, 0.95f, 0.32f, 0.55f);
-            material.SetFloat("_Surface", 1f);
-            material.SetFloat("_Blend", 0f);
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            material.SetInt("_ZWrite", 0);
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return material;
-        }
     }
 }

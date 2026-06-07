@@ -54,7 +54,7 @@ namespace FactoryColony
 
         private void EnsureLayout()
         {
-            _font = _font != null ? _font : Resources.GetBuiltinResource<Font>("Arial.ttf");
+            _font = _font != null ? _font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _rectTransform = GetComponent<RectTransform>();
 
             if (_rectTransform == null)
