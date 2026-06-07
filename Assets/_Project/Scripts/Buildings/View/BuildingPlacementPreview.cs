@@ -10,14 +10,39 @@ namespace FactoryColony
 
         private GridModel _model;
         private GridMouseSelector _selector;
+        private BaseInventoryModel _baseInventory;
         private float _cellSize = 1f;
         private GameObject _previewObject;
         private Renderer _previewRenderer;
         private Material _previewMaterial;
         private bool _canPlace;
+        private bool _canAfford;
 
         public BuildingDefinition SelectedBuilding { get; private set; }
         public BuildingDirection Direction { get; private set; } = BuildingDirection.North;
+        public BuildingDefinition SelectedDefinition
+        {
+            get { return SelectedBuilding; }
+        }
+
+        public BuildingDirection CurrentDirection
+        {
+            get { return Direction; }
+        }
+
+        public GridPosition? CurrentOrigin
+        {
+            get
+            {
+                if (_selector == null)
+                {
+                    return null;
+                }
+
+                return _selector.HoveredPosition;
+            }
+        }
+
         public bool HasSelection
         {
             get { return SelectedBuilding != null; }
@@ -33,10 +58,28 @@ namespace FactoryColony
             get { return HasSelection && HasHoveredCell && _canPlace; }
         }
 
+        public bool CanPlaceCurrentPreview
+        {
+            get { return CanPlace; }
+        }
+
+        public bool CanAffordCurrentBuilding
+        {
+            get { return HasSelection && _canAfford; }
+        }
+
+        public string CannotPlaceReason { get; private set; } = "NoSelection";
+
         public void Initialize(GridModel model, GridMouseSelector selector, float cellSize)
+        {
+            Initialize(model, selector, cellSize, null);
+        }
+
+        public void Initialize(GridModel model, GridMouseSelector selector, float cellSize, BaseInventoryModel baseInventory)
         {
             _model = model;
             _selector = selector;
+            _baseInventory = baseInventory;
             _cellSize = cellSize > 0f ? cellSize : 1f;
             EnsurePreviewObject();
             HidePreview();
@@ -53,6 +96,8 @@ namespace FactoryColony
         {
             SelectedBuilding = null;
             _canPlace = false;
+            _canAfford = false;
+            CannotPlaceReason = "NoSelection";
             HidePreview();
         }
 
@@ -76,10 +121,20 @@ namespace FactoryColony
         {
             if (_model == null
                 || _selector == null
-                || SelectedBuilding == null
-                || !_selector.HoveredPosition.HasValue)
+                || SelectedBuilding == null)
             {
                 _canPlace = false;
+                _canAfford = false;
+                CannotPlaceReason = "NoSelection";
+                HidePreview();
+                return;
+            }
+
+            if (!_selector.HoveredPosition.HasValue)
+            {
+                _canPlace = false;
+                _canAfford = CanAffordSelectedBuilding();
+                CannotPlaceReason = "NoHoveredCell";
                 HidePreview();
                 return;
             }
@@ -88,11 +143,35 @@ namespace FactoryColony
 
             GridPosition origin = _selector.HoveredPosition.Value;
             BuildingModel previewBuilding = new BuildingModel(PreviewInstanceId, SelectedBuilding, origin, Direction);
-            _canPlace = _model.CanPlaceBuilding(previewBuilding);
+            bool canPlaceOnGrid = _model.CanPlaceBuilding(previewBuilding);
+            _canAfford = CanAffordSelectedBuilding();
+            _canPlace = canPlaceOnGrid && _canAfford;
+            CannotPlaceReason = GetCannotPlaceReason(canPlaceOnGrid, _canAfford);
 
             ApplyPreviewTransform(previewBuilding);
             ApplyPreviewColor(_canPlace);
             _previewObject.SetActive(true);
+        }
+
+        private bool CanAffordSelectedBuilding()
+        {
+            return SelectedBuilding != null
+                && (_baseInventory == null || _baseInventory.CanAfford(SelectedBuilding.BuildCost));
+        }
+
+        private string GetCannotPlaceReason(bool canPlaceOnGrid, bool canAfford)
+        {
+            if (canPlaceOnGrid && canAfford)
+            {
+                return "None";
+            }
+
+            if (!canPlaceOnGrid)
+            {
+                return "InvalidGridPosition";
+            }
+
+            return "InsufficientResources";
         }
 
         private void ApplyPreviewTransform(BuildingModel previewBuilding)

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace FactoryColony
 {
@@ -14,6 +16,7 @@ namespace FactoryColony
         public bool IsRotatable { get; }
         public int PowerProduction { get; }
         public int PowerConsumption { get; }
+        public IReadOnlyDictionary<ResourceType, int> BuildCost { get; }
 
         public BuildingDefinition(
             string id,
@@ -49,6 +52,33 @@ namespace FactoryColony
             bool isRotatable,
             int powerProduction,
             int powerConsumption)
+            : this(
+                id,
+                type,
+                displayName,
+                width,
+                height,
+                requiresResourceNode,
+                requiredResourceType,
+                isRotatable,
+                powerProduction,
+                powerConsumption,
+                null)
+        {
+        }
+
+        public BuildingDefinition(
+            string id,
+            BuildingType type,
+            string displayName,
+            int width,
+            int height,
+            bool requiresResourceNode,
+            ResourceType requiredResourceType,
+            bool isRotatable,
+            int powerProduction,
+            int powerConsumption,
+            IReadOnlyDictionary<ResourceType, int> buildCost)
         {
             if (width < 1)
             {
@@ -70,6 +100,7 @@ namespace FactoryColony
                 throw new ArgumentException("Power consumption must not be negative.", nameof(powerConsumption));
             }
 
+            BuildCost = CreateBuildCost(buildCost);
             Id = id;
             Type = type;
             DisplayName = displayName;
@@ -80,6 +111,33 @@ namespace FactoryColony
             IsRotatable = isRotatable;
             PowerProduction = powerProduction;
             PowerConsumption = powerConsumption;
+        }
+
+        private static IReadOnlyDictionary<ResourceType, int> CreateBuildCost(IReadOnlyDictionary<ResourceType, int> buildCost)
+        {
+            Dictionary<ResourceType, int> copiedCost = new Dictionary<ResourceType, int>();
+
+            if (buildCost == null)
+            {
+                return new ReadOnlyDictionary<ResourceType, int>(copiedCost);
+            }
+
+            foreach (KeyValuePair<ResourceType, int> cost in buildCost)
+            {
+                if (cost.Key == ResourceType.None)
+                {
+                    throw new ArgumentException("Build cost cannot contain ResourceType.None.", nameof(buildCost));
+                }
+
+                if (cost.Value <= 0)
+                {
+                    throw new ArgumentException("Build cost amounts must be greater than zero.", nameof(buildCost));
+                }
+
+                copiedCost[cost.Key] = cost.Value;
+            }
+
+            return new ReadOnlyDictionary<ResourceType, int>(copiedCost);
         }
     }
 }

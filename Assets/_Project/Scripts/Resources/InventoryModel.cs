@@ -148,6 +148,32 @@ namespace FactoryColony
             }
         }
 
+        public void Clear()
+        {
+            _items.Clear();
+        }
+
+        public int RemoveAll(ResourceType type)
+        {
+            if (type == ResourceType.None)
+            {
+                return 0;
+            }
+
+            if (!_items.TryGetValue(type, out int amount))
+            {
+                return 0;
+            }
+
+            _items.Remove(type);
+            return amount;
+        }
+
+        public IReadOnlyDictionary<ResourceType, int> ToDictionary()
+        {
+            return new Dictionary<ResourceType, int>(_items);
+        }
+
         public IEnumerable<ResourceStack> GetStacks()
         {
             foreach (KeyValuePair<ResourceType, int> item in _items.OrderBy(item => item.Key))

@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace FactoryColony
 {
@@ -10,7 +12,13 @@ namespace FactoryColony
         [SerializeField] private FactoryDebugHud debugHud;
         [SerializeField] private GridMouseSelector gridMouseSelector;
         [SerializeField] private BuildingPlacementPreview placementPreview;
-        [SerializeField] private DebugBuildingSelectionController buildingSelectionController;
+        [SerializeField] private BuildingPlacementController placementController;
+        [SerializeField] private BuildingSelectionController buildingSelectionController;
+        [SerializeField] private DebugBuildingSelectionController debugBuildingSelectionController;
+        [SerializeField] private StorageCollectionController storageCollectionController;
+        [SerializeField] private Canvas debugCanvas;
+        [SerializeField] private BuildMenuView buildMenuView;
+        [SerializeField] private BuildMenuController buildMenuController;
 
         private void Start()
         {
@@ -22,14 +30,28 @@ namespace FactoryColony
 
             PlaceDebugBuildings(model);
             FactorySimulation simulation = new FactorySimulation(model);
+            BaseInventoryModel baseInventory = CreateBaseInventory();
+            StorageCollector storageCollector = new StorageCollector(model, baseInventory);
 
             gridView.Build(model);
             buildingViewFactory.Build(model, gridView.CellSize);
             gridMouseSelector.Initialize(model, gridView.CellSize);
-            placementPreview.Initialize(model, gridMouseSelector, gridView.CellSize);
-            buildingSelectionController.Initialize(placementPreview);
+            placementPreview.Initialize(model, gridMouseSelector, gridView.CellSize, baseInventory);
+            placementController.Initialize(model, gridMouseSelector, placementPreview, buildingViewFactory, gridView.CellSize, baseInventory);
+            buildingSelectionController.Initialize(model, gridMouseSelector, buildingViewFactory, gridView.CellSize, baseInventory);
+            debugBuildingSelectionController.Initialize(placementPreview);
+            storageCollectionController.Initialize(storageCollector);
+            buildMenuController.Initialize(buildMenuView, placementPreview, DebugBuildingDefinitions.GetBuildMenuDefinitions());
             simulationTickRunner.Initialize(simulation);
-            debugHud.Initialize(simulation, simulationTickRunner, gridMouseSelector, placementPreview);
+            debugHud.Initialize(
+                simulation,
+                simulationTickRunner,
+                gridMouseSelector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                storageCollectionController);
         }
 
         private void EnsureViews()
@@ -100,18 +122,111 @@ namespace FactoryColony
                 placementPreview = previewObject.AddComponent<BuildingPlacementPreview>();
             }
 
-            if (buildingSelectionController == null)
+            if (placementController == null)
             {
-                buildingSelectionController = FindObjectOfType<DebugBuildingSelectionController>();
+                placementController = FindObjectOfType<BuildingPlacementController>();
+            }
+
+            if (placementController == null)
+            {
+                GameObject placementObject = new GameObject("BuildingPlacementController");
+                placementController = placementObject.AddComponent<BuildingPlacementController>();
             }
 
             if (buildingSelectionController == null)
+            {
+                buildingSelectionController = FindObjectOfType<BuildingSelectionController>();
+            }
+
+            if (buildingSelectionController == null)
+            {
+                GameObject buildingSelectionObject = new GameObject("BuildingSelectionController");
+                buildingSelectionController = buildingSelectionObject.AddComponent<BuildingSelectionController>();
+            }
+
+            if (debugBuildingSelectionController == null)
+            {
+                debugBuildingSelectionController = FindObjectOfType<DebugBuildingSelectionController>();
+            }
+
+            if (debugBuildingSelectionController == null)
             {
                 GameObject selectionObject = new GameObject("DebugBuildingSelectionController");
-                buildingSelectionController = selectionObject.AddComponent<DebugBuildingSelectionController>();
+                debugBuildingSelectionController = selectionObject.AddComponent<DebugBuildingSelectionController>();
             }
 
+            if (storageCollectionController == null)
+            {
+                storageCollectionController = FindObjectOfType<StorageCollectionController>();
+            }
+
+            if (storageCollectionController == null)
+            {
+                GameObject collectionObject = new GameObject("StorageCollectionController");
+                storageCollectionController = collectionObject.AddComponent<StorageCollectionController>();
+            }
+
+            EnsureBuildMenu();
             EnsureCameraController();
+        }
+
+        private void EnsureBuildMenu()
+        {
+            EnsureEventSystem();
+
+            if (debugCanvas == null)
+            {
+                debugCanvas = FindObjectOfType<Canvas>();
+            }
+
+            if (debugCanvas == null)
+            {
+                GameObject canvasObject = new GameObject("FactoryDebugCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                debugCanvas = canvasObject.GetComponent<Canvas>();
+                debugCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+            }
+
+            if (debugCanvas.GetComponent<GraphicRaycaster>() == null)
+            {
+                debugCanvas.gameObject.AddComponent<GraphicRaycaster>();
+            }
+
+            if (buildMenuView == null)
+            {
+                buildMenuView = FindObjectOfType<BuildMenuView>();
+            }
+
+            if (buildMenuView == null)
+            {
+                GameObject buildMenuObject = new GameObject("BuildMenuView", typeof(RectTransform), typeof(BuildMenuView));
+                buildMenuObject.transform.SetParent(debugCanvas.transform, false);
+                buildMenuView = buildMenuObject.GetComponent<BuildMenuView>();
+            }
+
+            if (buildMenuController == null)
+            {
+                buildMenuController = FindObjectOfType<BuildMenuController>();
+            }
+
+            if (buildMenuController == null)
+            {
+                GameObject buildMenuControllerObject = new GameObject("BuildMenuController");
+                buildMenuController = buildMenuControllerObject.AddComponent<BuildMenuController>();
+            }
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (FindObjectOfType<EventSystem>() != null)
+            {
+                return;
+            }
+
+            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
         }
 
         private static void EnsureCameraController()
@@ -163,6 +278,16 @@ namespace FactoryColony
 
             assembler.SelectedRecipeId = RecipeCatalog.IronPlateRecipeId;
             return assembler;
+        }
+
+        private static BaseInventoryModel CreateBaseInventory()
+        {
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            inventory.Add(ResourceType.IronPlate, 100);
+            inventory.Add(ResourceType.CopperWire, 100);
+            inventory.Add(ResourceType.Gear, 20);
+            inventory.Add(ResourceType.BasicCircuit, 10);
+            return inventory;
         }
 
         private static void TryPlace(GridModel model, BuildingModel building)

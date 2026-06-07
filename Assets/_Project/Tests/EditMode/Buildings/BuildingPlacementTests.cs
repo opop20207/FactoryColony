@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Collections.Generic;
 using FactoryColony;
 using NUnit.Framework;
 
@@ -80,6 +81,54 @@ namespace FactoryColony.Tests.EditMode.Buildings
             foreach (GridPosition position in building.OccupiedPositions)
             {
                 Assert.IsFalse(gridModel.GetCell(position).HasBuilding);
+            }
+        }
+
+        [Test]
+        public void TryRemoveBuilding_ReturnsFalseForMissingBuilding()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("missing-building");
+
+            Assert.IsFalse(wasRemoved);
+        }
+
+        [Test]
+        public void TryRemoveBuilding_ClearsAllOccupiedCellsForMultiCellBuilding()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BuildingModel building = CreateBuilding("smelter-1", 2, 3, new GridPosition(2, 2));
+            gridModel.PlaceBuilding(building);
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("smelter-1");
+
+            Assert.IsTrue(wasRemoved);
+
+            foreach (GridPosition position in building.OccupiedPositions)
+            {
+                Assert.IsFalse(gridModel.GetCell(position).HasBuilding);
+                Assert.IsNull(gridModel.GetCell(position).OccupiedByBuildingId);
+            }
+        }
+
+        [Test]
+        public void RemovedBuilding_PositionCanBeReused()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BuildingModel firstBuilding = CreateBuilding("storage-1", 2, 2, new GridPosition(2, 2));
+            BuildingModel secondBuilding = CreateBuilding("storage-2", 2, 2, new GridPosition(2, 2));
+            gridModel.PlaceBuilding(firstBuilding);
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("storage-1");
+            bool wasPlacedAgain = gridModel.TryPlaceBuilding(secondBuilding);
+
+            Assert.IsTrue(wasRemoved);
+            Assert.IsTrue(wasPlacedAgain);
+
+            foreach (GridPosition position in secondBuilding.OccupiedPositions)
+            {
+                Assert.AreEqual("storage-2", gridModel.GetCell(position).OccupiedByBuildingId);
             }
         }
 
@@ -211,6 +260,155 @@ namespace FactoryColony.Tests.EditMode.Buildings
                 -1));
         }
 
+        [Test]
+        public void BuildingDefinition_StoresBuildCost()
+        {
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+
+            Assert.AreEqual(5, definition.BuildCost[ResourceType.IronPlate]);
+        }
+
+        [Test]
+        public void BuildingDefinition_RejectsNoneResourceBuildCost()
+        {
+            Assert.Throws<System.ArgumentException>(() => CreateDefinitionWithCost(Cost(ResourceType.None, 1)));
+        }
+
+        [Test]
+        public void BuildingDefinition_RejectsNonPositiveBuildCostAmount()
+        {
+            Assert.Throws<System.ArgumentException>(() => CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 0)));
+        }
+
+        [Test]
+        public void BuildingDefinition_DefensivelyCopiesBuildCost()
+        {
+            Dictionary<ResourceType, int> cost = Cost(ResourceType.IronPlate, 5);
+            BuildingDefinition definition = CreateDefinitionWithCost(cost);
+
+            cost[ResourceType.IronPlate] = 99;
+
+            Assert.AreEqual(5, definition.BuildCost[ResourceType.IronPlate]);
+        }
+
+        [Test]
+        public void ConstructionCost_IsSpentOnlyAfterSuccessfulPlacement()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            inventory.Add(ResourceType.IronPlate, 10);
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+            BuildingModel building = new BuildingModel("storage-1", definition, new GridPosition(1, 1), BuildingDirection.North);
+
+            bool wasPlaced = gridModel.TryPlaceBuilding(building);
+            bool wasSpent = inventory.TrySpend(definition.BuildCost);
+
+            Assert.IsTrue(wasPlaced);
+            Assert.IsTrue(wasSpent);
+            Assert.AreEqual(5, inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void ConstructionCost_IsNotSpentWhenInventoryCannotAfford()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            inventory.Add(ResourceType.IronPlate, 4);
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+            BuildingModel building = new BuildingModel("storage-1", definition, new GridPosition(1, 1), BuildingDirection.North);
+
+            bool canAfford = inventory.CanAfford(definition.BuildCost);
+            bool wasPlaced = canAfford && gridModel.TryPlaceBuilding(building);
+
+            Assert.IsFalse(canAfford);
+            Assert.IsFalse(wasPlaced);
+            Assert.AreEqual(4, inventory.GetAmount(ResourceType.IronPlate));
+            Assert.IsFalse(gridModel.GetCell(new GridPosition(1, 1)).HasBuilding);
+        }
+
+        [Test]
+        public void ConstructionCost_IsNotSpentWhenPlacementFails()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            inventory.Add(ResourceType.IronPlate, 10);
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+            gridModel.PlaceBuilding(new BuildingModel("existing", definition, new GridPosition(1, 1), BuildingDirection.North));
+
+            BuildingModel blockedBuilding = new BuildingModel("blocked", definition, new GridPosition(1, 1), BuildingDirection.North);
+            bool wasPlaced = gridModel.TryPlaceBuilding(blockedBuilding);
+
+            if (wasPlaced)
+            {
+                inventory.TrySpend(definition.BuildCost);
+            }
+
+            Assert.IsFalse(wasPlaced);
+            Assert.AreEqual(10, inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void RemovalRefund_ReturnsHalfOfBuildCostAfterSuccessfulRemoval()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+            gridModel.PlaceBuilding(new BuildingModel("storage-1", definition, new GridPosition(1, 1), BuildingDirection.North));
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("storage-1");
+
+            if (wasRemoved)
+            {
+                RefundHalf(inventory, definition.BuildCost);
+            }
+
+            Assert.IsTrue(wasRemoved);
+            Assert.AreEqual(2, inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void RemovalRefund_DoesNotRefundWhenRemovalFails()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            BuildingDefinition definition = CreateDefinitionWithCost(Cost(ResourceType.IronPlate, 5));
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("missing");
+
+            if (wasRemoved)
+            {
+                RefundHalf(inventory, definition.BuildCost);
+            }
+
+            Assert.IsFalse(wasRemoved);
+            Assert.AreEqual(0, inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void RemovalRefund_RefundsHalfOfEachBuildCostResource()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel inventory = new BaseInventoryModel();
+            Dictionary<ResourceType, int> cost = new Dictionary<ResourceType, int>
+            {
+                { ResourceType.IronPlate, 8 },
+                { ResourceType.CopperWire, 5 }
+            };
+            BuildingDefinition definition = CreateDefinitionWithCost(cost);
+            gridModel.PlaceBuilding(new BuildingModel("smelter-1", definition, new GridPosition(1, 1), BuildingDirection.North));
+
+            bool wasRemoved = gridModel.TryRemoveBuilding("smelter-1");
+
+            if (wasRemoved)
+            {
+                RefundHalf(inventory, definition.BuildCost);
+            }
+
+            Assert.IsTrue(wasRemoved);
+            Assert.AreEqual(4, inventory.GetAmount(ResourceType.IronPlate));
+            Assert.AreEqual(2, inventory.GetAmount(ResourceType.CopperWire));
+        }
+
         private static BuildingModel CreateBuilding(string instanceId, int width, int height, GridPosition origin)
         {
             return new BuildingModel(instanceId, CreateDefinition(width, height, false, ResourceType.None), origin, BuildingDirection.North);
@@ -259,6 +457,43 @@ namespace FactoryColony.Tests.EditMode.Buildings
                 true,
                 powerProduction,
                 powerConsumption);
+        }
+
+        private static BuildingDefinition CreateDefinitionWithCost(IReadOnlyDictionary<ResourceType, int> buildCost)
+        {
+            return new BuildingDefinition(
+                "test-building",
+                BuildingType.Storage,
+                "Test Building",
+                1,
+                1,
+                false,
+                ResourceType.None,
+                true,
+                0,
+                0,
+                buildCost);
+        }
+
+        private static Dictionary<ResourceType, int> Cost(ResourceType type, int amount)
+        {
+            return new Dictionary<ResourceType, int>
+            {
+                { type, amount }
+            };
+        }
+
+        private static void RefundHalf(BaseInventoryModel inventory, IReadOnlyDictionary<ResourceType, int> buildCost)
+        {
+            foreach (KeyValuePair<ResourceType, int> cost in buildCost)
+            {
+                int refundAmount = cost.Value / 2;
+
+                if (refundAmount > 0)
+                {
+                    inventory.Add(cost.Key, refundAmount);
+                }
+            }
         }
     }
 }

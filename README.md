@@ -42,5 +42,18 @@ Current visualization:
 - number keys 1-6 select a debug building preview
 - R rotates the selected preview when the building is rotatable
 - placement preview uses green for valid placement and red for invalid placement
+- left click places the selected preview when placement is valid
+- HUD shows total building count and the last placement result
+- hovering occupied cells shows building id, type, and inventory summary in the HUD
+- Delete or Backspace removes the hovered building and rebuilds the building view
+- Base Inventory provides debug construction resources
+- building previews include build-cost affordability in their valid/invalid state
+- successful construction spends build cost and removal refunds half of build cost
+- C collects all Storage resources into Base Inventory
+- HUD shows the last Storage collection result
+- Build Menu UI can select Miner, Conveyor, Smelter, Storage, Generator, and Assembler
+- number-key building selection is still available for debugging
+- ESC or the Clear Selection button clears the current build preview
+- clicking UI buttons is ignored by grid placement input
 
-Buildings are temporary primitive placeholders. The simulation is quantity-based only: actual click-to-build placement, construction costs, selection UI, building inventory labels, and item movement animation are not visualized yet.
+Buildings are temporary primitive placeholders. The simulation is quantity-based only: formal construction menus, building inventory labels, and item movement animation are not visualized yet.

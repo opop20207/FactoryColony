@@ -1,7 +1,9 @@
 {
     "name": "FactoryColony.Runtime",
     "rootNamespace": "FactoryColony",
-    "references": [],
+    "references": [
+        "UnityEngine.UI"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

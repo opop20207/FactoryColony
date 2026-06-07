@@ -18,13 +18,17 @@ namespace FactoryColony
             ResourceType.BasicCircuit
         };
 
-        private readonly Rect _panelRect = new Rect(12f, 12f, 300f, 360f);
+        private readonly Rect _panelRect = new Rect(12f, 12f, 470f, 700f);
         private readonly Dictionary<ResourceType, int> _storedResources = new Dictionary<ResourceType, int>();
 
         private FactorySimulation _simulation;
         private SimulationTickRunner _runner;
         private GridMouseSelector _selector;
         private BuildingPlacementPreview _placementPreview;
+        private BuildingPlacementController _placementController;
+        private BuildingSelectionController _buildingSelectionController;
+        private BaseInventoryModel _baseInventory;
+        private StorageCollectionController _storageCollectionController;
         private PowerModel _powerSnapshot;
         private GUIStyle _panelStyle;
         private GUIStyle _labelStyle;
@@ -45,19 +49,87 @@ namespace FactoryColony
             GridMouseSelector selector,
             BuildingPlacementPreview placementPreview)
         {
+            Initialize(simulation, runner, selector, placementPreview, null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController)
+        {
+            Initialize(simulation, runner, selector, placementPreview, placementController, null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController)
+        {
+            Initialize(simulation, runner, selector, placementPreview, placementController, buildingSelectionController, null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory)
+        {
+            Initialize(
+                simulation,
+                runner,
+                selector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory,
+            StorageCollectionController storageCollectionController)
+        {
             if (_runner != null)
             {
                 _runner.OnTickExecuted -= HandleTickExecuted;
+            }
+
+            if (_storageCollectionController != null)
+            {
+                _storageCollectionController.OnStorageCollected -= HandleStorageCollected;
             }
 
             _simulation = simulation;
             _runner = runner;
             _selector = selector;
             _placementPreview = placementPreview;
+            _placementController = placementController;
+            _buildingSelectionController = buildingSelectionController;
+            _baseInventory = baseInventory;
+            _storageCollectionController = storageCollectionController;
 
             if (_runner != null)
             {
                 _runner.OnTickExecuted += HandleTickExecuted;
+            }
+
+            if (_storageCollectionController != null)
+            {
+                _storageCollectionController.OnStorageCollected += HandleStorageCollected;
             }
 
             RefreshSnapshot();
@@ -69,9 +141,19 @@ namespace FactoryColony
             {
                 _runner.OnTickExecuted -= HandleTickExecuted;
             }
+
+            if (_storageCollectionController != null)
+            {
+                _storageCollectionController.OnStorageCollected -= HandleStorageCollected;
+            }
         }
 
         private void HandleTickExecuted(int tickCount)
+        {
+            RefreshSnapshot();
+        }
+
+        private void HandleStorageCollected()
         {
             RefreshSnapshot();
         }
@@ -117,13 +199,30 @@ namespace FactoryColony
             GUILayout.Label("Running: " + _runner.IsRunning, _labelStyle);
             GUILayout.Label("Hovered Cell: " + GetHoveredCellText(), _labelStyle);
             GUILayout.Label("Selected Building: " + GetSelectedBuildingText(), _labelStyle);
+            GUILayout.Label("Selected Building Cost: " + GetSelectedBuildingCostText(), _labelStyle);
             GUILayout.Label("Preview Direction: " + GetPreviewDirectionText(), _labelStyle);
             GUILayout.Label("Can Place: " + GetCanPlaceText(), _labelStyle);
+            GUILayout.Label("Can Afford: " + GetCanAffordText(), _labelStyle);
+            GUILayout.Label("Cannot Place Reason: " + GetCannotPlaceReasonText(), _labelStyle);
+            GUILayout.Label("Total Buildings: " + GetTotalBuildingsText(), _labelStyle);
+            GUILayout.Label("Last Placement Result: " + GetLastPlacementResultText(), _labelStyle);
+            GUILayout.Label("Hovered Building Id: " + GetHoveredBuildingIdText(), _labelStyle);
+            GUILayout.Label("Hovered Building Type: " + GetHoveredBuildingTypeText(), _labelStyle);
+            GUILayout.Label("Hovered Building Inventory: " + GetHoveredBuildingInventoryText(), _labelStyle);
+            GUILayout.Label("Last Removal Result: " + GetLastRemovalResultText(), _labelStyle);
+            GUILayout.Label("Press C: Collect Storage Resources", _labelStyle);
+            GUILayout.Label("Last Collection Result: " + GetLastCollectionResultText(), _labelStyle);
             GUILayout.Space(6f);
             GUILayout.Label("Power Produced: " + power.ProducedPower, _labelStyle);
             GUILayout.Label("Power Consumed: " + power.ConsumedPower, _labelStyle);
             GUILayout.Label("Power Available: " + power.AvailablePower, _labelStyle);
             GUILayout.Label("Has Enough Power: " + power.HasEnoughPower, _labelStyle);
+            GUILayout.Space(6f);
+            GUILayout.Label("Base Inventory", _labelStyle);
+            GUILayout.Label("IronPlate: " + GetBaseInventoryAmount(ResourceType.IronPlate), _labelStyle);
+            GUILayout.Label("CopperWire: " + GetBaseInventoryAmount(ResourceType.CopperWire), _labelStyle);
+            GUILayout.Label("Gear: " + GetBaseInventoryAmount(ResourceType.Gear), _labelStyle);
+            GUILayout.Label("BasicCircuit: " + GetBaseInventoryAmount(ResourceType.BasicCircuit), _labelStyle);
             GUILayout.Space(6f);
             GUILayout.Label("Stored Resources", _labelStyle);
 
@@ -169,6 +268,16 @@ namespace FactoryColony
             return _placementPreview.SelectedBuilding.DisplayName;
         }
 
+        private string GetSelectedBuildingCostText()
+        {
+            if (_placementPreview == null || _placementPreview.SelectedBuilding == null)
+            {
+                return "None";
+            }
+
+            return FormatCost(_placementPreview.SelectedBuilding.BuildCost);
+        }
+
         private string GetPreviewDirectionText()
         {
             if (_placementPreview == null || !_placementPreview.HasSelection)
@@ -187,6 +296,145 @@ namespace FactoryColony
             }
 
             return _placementPreview.CanPlace.ToString();
+        }
+
+        private string GetCanAffordText()
+        {
+            if (_placementPreview == null || !_placementPreview.HasSelection)
+            {
+                return "N/A";
+            }
+
+            return _placementPreview.CanAffordCurrentBuilding.ToString();
+        }
+
+        private string GetCannotPlaceReasonText()
+        {
+            if (_placementPreview == null)
+            {
+                return "N/A";
+            }
+
+            return _placementPreview.CannotPlaceReason;
+        }
+
+        private string GetTotalBuildingsText()
+        {
+            if (_placementController == null)
+            {
+                return "N/A";
+            }
+
+            return _placementController.TotalBuildings.ToString();
+        }
+
+        private string GetLastPlacementResultText()
+        {
+            if (_placementController == null)
+            {
+                return "N/A";
+            }
+
+            return _placementController.LastPlacementResult;
+        }
+
+        private string GetHoveredBuildingIdText()
+        {
+            if (_buildingSelectionController == null
+                || _buildingSelectionController.HoveredBuilding == null)
+            {
+                return "None";
+            }
+
+            return _buildingSelectionController.HoveredBuilding.InstanceId;
+        }
+
+        private string GetHoveredBuildingTypeText()
+        {
+            if (_buildingSelectionController == null
+                || _buildingSelectionController.HoveredBuilding == null)
+            {
+                return "None";
+            }
+
+            return _buildingSelectionController.HoveredBuilding.Definition.Type.ToString();
+        }
+
+        private string GetHoveredBuildingInventoryText()
+        {
+            if (_buildingSelectionController == null
+                || _buildingSelectionController.HoveredBuilding == null)
+            {
+                return "None";
+            }
+
+            InventoryModel inventory = _buildingSelectionController.HoveredBuilding.Inventory;
+
+            if (inventory.IsEmpty)
+            {
+                return "Empty";
+            }
+
+            string result = string.Empty;
+
+            foreach (ResourceStack stack in inventory.GetStacks())
+            {
+                if (!string.IsNullOrEmpty(result))
+                {
+                    result += ", ";
+                }
+
+                result += stack.Type + ": " + stack.Amount;
+            }
+
+            return string.IsNullOrEmpty(result) ? "Empty" : result;
+        }
+
+        private string GetLastRemovalResultText()
+        {
+            if (_buildingSelectionController == null)
+            {
+                return "N/A";
+            }
+
+            return _buildingSelectionController.LastRemovalResult;
+        }
+
+        private string GetLastCollectionResultText()
+        {
+            if (_storageCollectionController == null)
+            {
+                return "N/A";
+            }
+
+            return _storageCollectionController.LastCollectionResult;
+        }
+
+        private int GetBaseInventoryAmount(ResourceType type)
+        {
+            return _baseInventory != null ? _baseInventory.GetAmount(type) : 0;
+        }
+
+        private static string FormatCost(IReadOnlyDictionary<ResourceType, int> cost)
+        {
+            if (cost == null || cost.Count == 0)
+            {
+                return "Free";
+            }
+
+            string result = string.Empty;
+
+            foreach (KeyValuePair<ResourceType, int> item in cost)
+            {
+                if (!string.IsNullOrEmpty(result))
+                {
+                    result += ", ";
+                }
+
+                result += item.Key + ": " + item.Value;
+            }
+
+            return result;
         }
 
         private void EnsureStyles()

@@ -202,6 +202,56 @@ namespace FactoryColony.Tests.EditMode.Resources
             Assert.AreEqual(2, inventory.GetAmount(ResourceType.CopperWire));
         }
 
+        [Test]
+        public void RemoveAll_RemovesAllOfResourceTypeAndReturnsAmount()
+        {
+            InventoryModel inventory = new InventoryModel();
+            inventory.Add(ResourceType.IronPlate, 4);
+            inventory.Add(ResourceType.CopperWire, 2);
+
+            int removedAmount = inventory.RemoveAll(ResourceType.IronPlate);
+
+            Assert.AreEqual(4, removedAmount);
+            Assert.AreEqual(0, inventory.GetAmount(ResourceType.IronPlate));
+            Assert.AreEqual(2, inventory.GetAmount(ResourceType.CopperWire));
+        }
+
+        [Test]
+        public void RemoveAll_ReturnsZeroWhenResourceDoesNotExist()
+        {
+            InventoryModel inventory = new InventoryModel();
+
+            int removedAmount = inventory.RemoveAll(ResourceType.IronPlate);
+
+            Assert.AreEqual(0, removedAmount);
+        }
+
+        [Test]
+        public void ToDictionary_ReturnsCopy()
+        {
+            InventoryModel inventory = new InventoryModel();
+            inventory.Add(ResourceType.IronPlate, 4);
+
+            System.Collections.Generic.IReadOnlyDictionary<ResourceType, int> snapshot = inventory.ToDictionary();
+            ((System.Collections.Generic.Dictionary<ResourceType, int>)snapshot)[ResourceType.IronPlate] = 99;
+
+            Assert.AreEqual(4, inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void Clear_RemovesAllResources()
+        {
+            InventoryModel inventory = new InventoryModel();
+            inventory.Add(ResourceType.IronPlate, 4);
+            inventory.Add(ResourceType.CopperWire, 2);
+
+            inventory.Clear();
+
+            Assert.IsTrue(inventory.IsEmpty);
+            Assert.AreEqual(0, inventory.GetAmount(ResourceType.IronPlate));
+            Assert.AreEqual(0, inventory.GetAmount(ResourceType.CopperWire));
+        }
+
         private static System.Collections.Generic.Dictionary<ResourceType, int> Requirements()
         {
             return new System.Collections.Generic.Dictionary<ResourceType, int>
