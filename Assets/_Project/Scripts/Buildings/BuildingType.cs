@@ -7,6 +7,7 @@ namespace FactoryColony
         Conveyor = 2,
         Smelter = 3,
         Storage = 4,
-        Generator = 5
+        Generator = 5,
+        Assembler = 6
     }
 }

@@ -24,3 +24,15 @@ The factory is the primary game. Players must be able to progress through the ma
 - C#: TBD
 - IDE: TBD
 - Target platform: PC
+
+## Debug Scene
+Open `Assets/_Project/Scenes/BasePlanet/FactoryDebug.unity` in Unity and press Play to view the first debug grid.
+
+Current visualization:
+- 10x10 grid on the XZ plane
+- resource nodes at `(1,1)` IronOre, `(3,2)` CopperOre, and `(5,5)` Coal
+- orthographic camera setup for a top/quarter-view look
+- primitive-based building debug views for Miner, Conveyor, Smelter, Storage, Generator, and Assembler
+- simple direction indicators above buildings
+
+Buildings are temporary primitive placeholders. Construction input, selection UI, simulation tick playback, inventory numbers, and item movement animation are not visualized yet.
