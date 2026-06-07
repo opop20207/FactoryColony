@@ -34,5 +34,13 @@ Current visualization:
 - orthographic camera setup for a top/quarter-view look
 - primitive-based building debug views for Miner, Conveyor, Smelter, Storage, Generator, and Assembler
 - simple direction indicators above buildings
+- runtime simulation ticks through the debug production line after pressing Play
+- OnGUI debug HUD with tick count, power state, and aggregated Storage resources
+- WASD or arrow-key camera movement
+- mouse-wheel orthographic zoom
+- hovered grid-cell highlight with the current cell shown in the HUD
+- number keys 1-6 select a debug building preview
+- R rotates the selected preview when the building is rotatable
+- placement preview uses green for valid placement and red for invalid placement
 
-Buildings are temporary primitive placeholders. Construction input, selection UI, simulation tick playback, inventory numbers, and item movement animation are not visualized yet.
+Buildings are temporary primitive placeholders. The simulation is quantity-based only: actual click-to-build placement, construction costs, selection UI, building inventory labels, and item movement animation are not visualized yet.

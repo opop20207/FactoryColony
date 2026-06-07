@@ -35,7 +35,8 @@ namespace FactoryColony
             return building != null
                 && (building.Definition.Type == BuildingType.Storage
                     || building.Definition.Type == BuildingType.Conveyor
-                    || building.Definition.Type == BuildingType.Smelter);
+                    || building.Definition.Type == BuildingType.Smelter
+                    || building.Definition.Type == BuildingType.Assembler);
         }
 
         public int GetStoredAmount(ResourceType type)

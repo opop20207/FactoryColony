@@ -6,6 +6,11 @@ namespace FactoryColony
     {
         [SerializeField] private GridView gridView;
         [SerializeField] private BuildingViewFactory buildingViewFactory;
+        [SerializeField] private SimulationTickRunner simulationTickRunner;
+        [SerializeField] private FactoryDebugHud debugHud;
+        [SerializeField] private GridMouseSelector gridMouseSelector;
+        [SerializeField] private BuildingPlacementPreview placementPreview;
+        [SerializeField] private DebugBuildingSelectionController buildingSelectionController;
 
         private void Start()
         {
@@ -16,8 +21,15 @@ namespace FactoryColony
             model.SetResourceNode(new GridPosition(5, 5), ResourceType.Coal);
 
             PlaceDebugBuildings(model);
+            FactorySimulation simulation = new FactorySimulation(model);
+
             gridView.Build(model);
             buildingViewFactory.Build(model, gridView.CellSize);
+            gridMouseSelector.Initialize(model, gridView.CellSize);
+            placementPreview.Initialize(model, gridMouseSelector, gridView.CellSize);
+            buildingSelectionController.Initialize(placementPreview);
+            simulationTickRunner.Initialize(simulation);
+            debugHud.Initialize(simulation, simulationTickRunner, gridMouseSelector, placementPreview);
         }
 
         private void EnsureViews()
@@ -43,19 +55,93 @@ namespace FactoryColony
                 GameObject buildingViewFactoryObject = new GameObject("BuildingViewFactory");
                 buildingViewFactory = buildingViewFactoryObject.AddComponent<BuildingViewFactory>();
             }
+
+            if (simulationTickRunner == null)
+            {
+                simulationTickRunner = FindObjectOfType<SimulationTickRunner>();
+            }
+
+            if (simulationTickRunner == null)
+            {
+                GameObject tickRunnerObject = new GameObject("SimulationTickRunner");
+                simulationTickRunner = tickRunnerObject.AddComponent<SimulationTickRunner>();
+            }
+
+            if (debugHud == null)
+            {
+                debugHud = FindObjectOfType<FactoryDebugHud>();
+            }
+
+            if (debugHud == null)
+            {
+                GameObject debugHudObject = new GameObject("FactoryDebugHud");
+                debugHud = debugHudObject.AddComponent<FactoryDebugHud>();
+            }
+
+            if (gridMouseSelector == null)
+            {
+                gridMouseSelector = FindObjectOfType<GridMouseSelector>();
+            }
+
+            if (gridMouseSelector == null)
+            {
+                GameObject selectorObject = new GameObject("GridMouseSelector");
+                gridMouseSelector = selectorObject.AddComponent<GridMouseSelector>();
+            }
+
+            if (placementPreview == null)
+            {
+                placementPreview = FindObjectOfType<BuildingPlacementPreview>();
+            }
+
+            if (placementPreview == null)
+            {
+                GameObject previewObject = new GameObject("BuildingPlacementPreviewController");
+                placementPreview = previewObject.AddComponent<BuildingPlacementPreview>();
+            }
+
+            if (buildingSelectionController == null)
+            {
+                buildingSelectionController = FindObjectOfType<DebugBuildingSelectionController>();
+            }
+
+            if (buildingSelectionController == null)
+            {
+                GameObject selectionObject = new GameObject("DebugBuildingSelectionController");
+                buildingSelectionController = selectionObject.AddComponent<DebugBuildingSelectionController>();
+            }
+
+            EnsureCameraController();
+        }
+
+        private static void EnsureCameraController()
+        {
+            Camera camera = Camera.main;
+
+            if (camera == null)
+            {
+                GameObject cameraObject = new GameObject("Main Camera");
+                cameraObject.tag = "MainCamera";
+                camera = cameraObject.AddComponent<Camera>();
+            }
+
+            if (camera.GetComponent<CameraController>() == null)
+            {
+                camera.gameObject.AddComponent<CameraController>();
+            }
         }
 
         private void PlaceDebugBuildings(GridModel model)
         {
-            TryPlace(model, CreateBuilding("miner-iron-1", DebugDefinition(BuildingType.Miner, 1, 1, true, ResourceType.IronOre), new GridPosition(1, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("conveyor-input-1", DebugDefinition(BuildingType.Conveyor, 1, 1), new GridPosition(2, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("conveyor-input-2", DebugDefinition(BuildingType.Conveyor, 1, 1), new GridPosition(3, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("smelter-1", DebugDefinition(BuildingType.Smelter, 2, 2), new GridPosition(4, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("conveyor-output-1", DebugDefinition(BuildingType.Conveyor, 1, 1), new GridPosition(6, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("conveyor-output-2", DebugDefinition(BuildingType.Conveyor, 1, 1), new GridPosition(7, 1), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("storage-1", DebugDefinition(BuildingType.Storage, 1, 1), new GridPosition(8, 1), BuildingDirection.North));
-            TryPlace(model, CreateBuilding("generator-1", DebugDefinition(BuildingType.Generator, 2, 2), new GridPosition(0, 6), BuildingDirection.East));
-            TryPlace(model, CreateBuilding("assembler-1", DebugDefinition(BuildingType.Assembler, 2, 2), new GridPosition(6, 4), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("miner-iron-1", DebugBuildingDefinitions.Get(BuildingType.Miner), new GridPosition(1, 1), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-ore-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(2, 1), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("smelter-iron-1", DebugBuildingDefinitions.Get(BuildingType.Smelter), new GridPosition(3, 1), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-ingot-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(4, 1), BuildingDirection.East));
+            TryPlace(model, CreateIronPlateAssembler(new GridPosition(5, 1), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("conveyor-plate-1", DebugBuildingDefinitions.Get(BuildingType.Conveyor), new GridPosition(6, 1), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("storage-output-1", DebugBuildingDefinitions.Get(BuildingType.Storage), new GridPosition(7, 1), BuildingDirection.North));
+            TryPlace(model, CreateBuilding("generator-1", DebugBuildingDefinitions.Get(BuildingType.Generator), new GridPosition(0, 6), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("generator-2", DebugBuildingDefinitions.Get(BuildingType.Generator), new GridPosition(1, 6), BuildingDirection.East));
         }
 
         private static BuildingModel CreateBuilding(
@@ -67,49 +153,16 @@ namespace FactoryColony
             return new BuildingModel(instanceId, definition, origin, direction);
         }
 
-        private static BuildingDefinition DebugDefinition(BuildingType type, int width, int height)
+        private static BuildingModel CreateIronPlateAssembler(GridPosition origin, BuildingDirection direction)
         {
-            return DebugDefinition(type, width, height, false, ResourceType.None);
-        }
+            BuildingModel assembler = CreateBuilding(
+                "assembler-iron-plate-1",
+                DebugBuildingDefinitions.Get(BuildingType.Assembler),
+                origin,
+                direction);
 
-        private static BuildingDefinition DebugDefinition(
-            BuildingType type,
-            int width,
-            int height,
-            bool requiresResourceNode,
-            ResourceType requiredResourceType)
-        {
-            return new BuildingDefinition(
-                "debug-" + type,
-                type,
-                "Debug " + type,
-                width,
-                height,
-                requiresResourceNode,
-                requiredResourceType,
-                true,
-                GetPowerProduction(type),
-                GetPowerConsumption(type));
-        }
-
-        private static int GetPowerProduction(BuildingType type)
-        {
-            return type == BuildingType.Generator ? 10 : 0;
-        }
-
-        private static int GetPowerConsumption(BuildingType type)
-        {
-            switch (type)
-            {
-                case BuildingType.Miner:
-                    return 2;
-                case BuildingType.Smelter:
-                    return 4;
-                case BuildingType.Assembler:
-                    return 5;
-                default:
-                    return 0;
-            }
+            assembler.SelectedRecipeId = RecipeCatalog.IronPlateRecipeId;
+            return assembler;
         }
 
         private static void TryPlace(GridModel model, BuildingModel building)
