@@ -43,6 +43,20 @@ namespace FactoryColony
             OnStorageCollected?.Invoke();
         }
 
+        public void CollectStorage(BuildingModel storage)
+        {
+            if (_collector == null)
+            {
+                LastCollectionResult = "Storage collector is not initialized.";
+                Debug.LogWarning(LastCollectionResult);
+                return;
+            }
+
+            IReadOnlyDictionary<ResourceType, int> collectedResources = _collector.CollectFromStorage(storage);
+            LastCollectionResult = FormatCollectionResult(collectedResources);
+            OnStorageCollected?.Invoke();
+        }
+
         private static string FormatCollectionResult(IReadOnlyDictionary<ResourceType, int> collectedResources)
         {
             if (collectedResources == null || collectedResources.Count == 0)

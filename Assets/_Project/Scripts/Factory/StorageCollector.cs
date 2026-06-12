@@ -84,6 +84,33 @@ namespace FactoryColony
             return new ReadOnlyDictionary<ResourceType, int>(collectedResources);
         }
 
+        public IReadOnlyDictionary<ResourceType, int> CollectFromStorage(BuildingModel storage)
+        {
+            Dictionary<ResourceType, int> collectedResources = new Dictionary<ResourceType, int>();
+
+            if (storage == null || storage.Definition.Type != BuildingType.Storage)
+            {
+                return new ReadOnlyDictionary<ResourceType, int>(collectedResources);
+            }
+
+            ResourceStack[] stacks = storage.Inventory.GetStacks().ToArray();
+
+            foreach (ResourceStack stack in stacks)
+            {
+                int removedAmount = storage.Inventory.RemoveAll(stack.Type);
+
+                if (removedAmount <= 0)
+                {
+                    continue;
+                }
+
+                _baseInventory.Add(stack.Type, removedAmount);
+                collectedResources[stack.Type] = removedAmount;
+            }
+
+            return new ReadOnlyDictionary<ResourceType, int>(collectedResources);
+        }
+
         private IEnumerable<BuildingModel> GetStorageBuildings()
         {
             return _gridModel.GetAllBuildings()

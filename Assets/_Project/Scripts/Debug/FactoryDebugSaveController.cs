@@ -24,9 +24,13 @@ namespace FactoryColony
         private BuildingDetailPanelController _detailPanelController;
         private SimulationTickRunner _tickRunner;
         private StorageCollectionController _storageCollectionController;
+        private PlayerInteractionController _playerInteractionController;
         private FactoryDebugHud _debugHud;
         private GoalHudView _goalHudView;
         private GoalUpdateController _goalUpdateController;
+        private ResourceVisualRefreshController _resourceVisualRefreshController;
+        private IReadOnlyDictionary<string, BuildingDefinition> _definitionsById;
+        private RecipeCatalog _recipeCatalog;
         private float _cellSize = 1f;
 
         public string SavePath { get; private set; }
@@ -56,6 +60,10 @@ namespace FactoryColony
             FactoryDebugHud debugHud,
             GoalHudView goalHudView,
             GoalUpdateController goalUpdateController,
+            ResourceVisualRefreshController resourceVisualRefreshController,
+            PlayerInteractionController playerInteractionController,
+            IReadOnlyDictionary<string, BuildingDefinition> definitionsById,
+            RecipeCatalog recipeCatalog,
             float cellSize)
         {
             _gridModel = gridModel;
@@ -75,6 +83,10 @@ namespace FactoryColony
             _debugHud = debugHud;
             _goalHudView = goalHudView;
             _goalUpdateController = goalUpdateController;
+            _resourceVisualRefreshController = resourceVisualRefreshController;
+            _playerInteractionController = playerInteractionController;
+            _definitionsById = definitionsById;
+            _recipeCatalog = recipeCatalog;
             _cellSize = cellSize > 0f ? cellSize : 1f;
             SavePath = Path.Combine(Application.persistentDataPath, "factory_debug_save.json");
         }
@@ -125,14 +137,14 @@ namespace FactoryColony
 
             try
             {
-                Dictionary<string, BuildingDefinition> definitionsById = CreateDefinitionLookup();
+                IReadOnlyDictionary<string, BuildingDefinition> definitionsById = CreateDefinitionLookup();
                 FactorySaveLoader saveLoader = _saveLoader ?? new FactorySaveLoader(message => Debug.LogWarning(message));
                 GridModel restoredGrid = saveLoader.RestoreGrid(saveData, definitionsById);
                 BaseInventoryModel restoredBaseInventory = saveLoader.RestoreBaseInventory(saveData);
                 GoalTracker restoredGoalTracker = new GoalTracker(restoredBaseInventory, DebugGoalDefinitions.CreateGoals());
                 saveLoader.RestoreGoals(saveData, restoredGoalTracker);
 
-                FactorySimulation restoredSimulation = new FactorySimulation(restoredGrid);
+                FactorySimulation restoredSimulation = new FactorySimulation(restoredGrid, _recipeCatalog);
                 StorageCollector restoredStorageCollector = new StorageCollector(restoredGrid, restoredBaseInventory);
 
                 RebindDebugScene(
@@ -213,6 +225,11 @@ namespace FactoryColony
                 _storageCollectionController.Initialize(restoredStorageCollector);
             }
 
+            if (_playerInteractionController != null)
+            {
+                _playerInteractionController.Initialize(restoredGrid, _selectionController, _storageCollectionController, _cellSize);
+            }
+
             if (_tickRunner != null)
             {
                 _tickRunner.Initialize(restoredSimulation);
@@ -226,6 +243,11 @@ namespace FactoryColony
             if (_goalUpdateController != null)
             {
                 _goalUpdateController.Initialize(restoredGoalTracker, _tickRunner, _storageCollectionController);
+            }
+
+            if (_resourceVisualRefreshController != null)
+            {
+                _resourceVisualRefreshController.Initialize(_tickRunner, _buildingViewFactory, _storageCollectionController);
             }
 
             if (_debugHud != null)
@@ -243,8 +265,13 @@ namespace FactoryColony
             }
         }
 
-        private static Dictionary<string, BuildingDefinition> CreateDefinitionLookup()
+        private IReadOnlyDictionary<string, BuildingDefinition> CreateDefinitionLookup()
         {
+            if (_definitionsById != null && _definitionsById.Count > 0)
+            {
+                return _definitionsById;
+            }
+
             Dictionary<string, BuildingDefinition> definitionsById = new Dictionary<string, BuildingDefinition>();
 
             foreach (BuildingDefinition definition in DebugBuildingDefinitions.GetAll())

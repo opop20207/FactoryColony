@@ -1,15 +1,37 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 namespace FactoryColony
 {
     public sealed class DebugBuildingSelectionController : MonoBehaviour
     {
         private BuildingPlacementPreview _preview;
+        private readonly Dictionary<BuildingType, BuildingDefinition> _definitionsByType =
+            new Dictionary<BuildingType, BuildingDefinition>();
 
         public void Initialize(BuildingPlacementPreview preview)
         {
+            Initialize(preview, DebugBuildingDefinitions.GetBuildMenuDefinitions());
+        }
+
+        public void Initialize(BuildingPlacementPreview preview, IEnumerable<BuildingDefinition> definitions)
+        {
             _preview = preview;
+            _definitionsByType.Clear();
+
+            if (definitions == null)
+            {
+                return;
+            }
+
+            foreach (BuildingDefinition definition in definitions)
+            {
+                if (definition != null && !_definitionsByType.ContainsKey(definition.Type))
+                {
+                    _definitionsByType.Add(definition.Type, definition);
+                }
+            }
         }
 
         private void Update()
@@ -57,7 +79,13 @@ namespace FactoryColony
 
         private void Select(BuildingType type)
         {
-            if (DebugBuildingDefinitions.TryGet(type, out BuildingDefinition definition))
+            if (_definitionsByType.TryGetValue(type, out BuildingDefinition definition))
+            {
+                _preview.SetSelectedBuilding(definition);
+                return;
+            }
+
+            if (DebugBuildingDefinitions.TryGet(type, out definition))
             {
                 _preview.SetSelectedBuilding(definition);
             }

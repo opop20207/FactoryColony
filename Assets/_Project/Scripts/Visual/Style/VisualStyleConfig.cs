@@ -23,9 +23,15 @@ namespace FactoryColony
         public static readonly Color PreviewInvalidColor = new Color(0.95f, 0.22f, 0.18f, 0.5f);
         public static readonly Color SelectionColor = new Color(0.16f, 0.72f, 1f, 0.42f);
         public static readonly Color HoverColor = new Color(1f, 0.88f, 0.22f, 0.52f);
+        public static readonly Color InteractionColor = new Color(1f, 0.78f, 0.18f, 0.38f);
 
         public static readonly Color LightAccentColor = new Color(1f, 0.83f, 0.38f);
         public static readonly Color DarkAccentColor = new Color(0.12f, 0.14f, 0.15f);
+
+        public const float ConveyorTokenHeight = 0.4f;
+        public const float ConveyorTokenMoveDistance = 0.25f;
+        public const float ConveyorTokenLoopDuration = 0.9f;
+        public const int ConveyorTokenMaxCount = 2;
 
         public static Color GetBuildingColor(BuildingType type)
         {
@@ -58,9 +64,26 @@ namespace FactoryColony
                     return CopperOreColor;
                 case ResourceType.Coal:
                     return CoalColor;
+                case ResourceType.IronIngot:
+                    return new Color(0.78f, 0.8f, 0.78f);
+                case ResourceType.CopperIngot:
+                    return new Color(0.92f, 0.54f, 0.3f);
+                case ResourceType.IronPlate:
+                    return new Color(0.66f, 0.7f, 0.72f);
+                case ResourceType.CopperWire:
+                    return new Color(0.95f, 0.58f, 0.25f);
+                case ResourceType.Gear:
+                    return new Color(0.72f, 0.66f, 0.48f);
+                case ResourceType.BasicCircuit:
+                    return new Color(0.22f, 0.75f, 0.38f);
                 default:
-                    return GroundColor;
+                    return new Color(0.88f, 0.88f, 0.84f);
             }
+        }
+
+        public static bool HasResourceTokenColor(ResourceType type)
+        {
+            return type != ResourceType.None;
         }
     }
 }

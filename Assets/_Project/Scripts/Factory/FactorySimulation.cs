@@ -10,9 +10,14 @@ namespace FactoryColony
         private readonly RecipeCatalog _recipeCatalog;
 
         public FactorySimulation(GridModel gridModel)
+            : this(gridModel, null)
+        {
+        }
+
+        public FactorySimulation(GridModel gridModel, RecipeCatalog recipeCatalog)
         {
             _gridModel = gridModel ?? throw new ArgumentNullException(nameof(gridModel));
-            _recipeCatalog = RecipeCatalog.CreateDefault();
+            _recipeCatalog = recipeCatalog ?? RecipeCatalog.CreateDefault();
         }
 
         public IEnumerable<BuildingModel> GetBuildingsByType(BuildingType type)

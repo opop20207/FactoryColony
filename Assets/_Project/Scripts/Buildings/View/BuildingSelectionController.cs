@@ -120,6 +120,18 @@ namespace FactoryColony
             HideSelectionHighlight();
         }
 
+        public void SelectBuilding(BuildingModel building)
+        {
+            if (building == null)
+            {
+                ClearSelection();
+                return;
+            }
+
+            SelectedBuilding = building;
+            UpdateHighlight(_selectionHighlightObject, SelectedBuilding, SelectionHighlightY, SelectionHighlightHeight);
+        }
+
         private void HandleSelectionInput()
         {
             if (PlayerInputReader.WasKeyPressedThisFrame(Key.Escape))

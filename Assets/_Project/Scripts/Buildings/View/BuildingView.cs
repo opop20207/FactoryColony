@@ -6,6 +6,7 @@ namespace FactoryColony
     public sealed class BuildingView : MonoBehaviour
     {
         private BuildingModel _building;
+        private BuildingInventoryVisualView _inventoryVisualView;
 
         public BuildingModel Building
         {
@@ -29,6 +30,19 @@ namespace FactoryColony
                 bounds.Width * cellSize,
                 bounds.Height * cellSize,
                 cellSize);
+
+            GameObject inventoryVisualObject = new GameObject("InventoryVisualRoot");
+            inventoryVisualObject.transform.SetParent(transform, false);
+            _inventoryVisualView = inventoryVisualObject.AddComponent<BuildingInventoryVisualView>();
+            _inventoryVisualView.Initialize(building, cellSize);
+        }
+
+        public void RefreshInventoryVisual()
+        {
+            if (_inventoryVisualView != null)
+            {
+                _inventoryVisualView.Refresh();
+            }
         }
 
         private static BoundsData CalculateBounds(IReadOnlyList<GridPosition> positions)

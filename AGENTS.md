@@ -243,3 +243,88 @@ Do not implement:
 - Full Tarkov-style inventory complexity
 - Online economy
 - Roguelike puzzle mechanics
+
+## Token Budget / Caveman Harness
+
+Default mode:
+- compact
+- direct
+- no long prose
+- no repeated context
+
+Do not repeat:
+- project summary
+- current prompt
+- old roadmap
+- obvious rules
+- non-goals list
+- design background
+
+Use short output.
+
+Prefer:
+- short words
+- short lines
+- bullets
+- file paths
+- status only
+
+Avoid:
+- long explanation
+- design essay
+- motivation text
+- full recap
+- many options
+- verbose reasoning
+
+## Work Search Rules
+
+Before edit:
+- read needed files only
+- search narrow folders
+- avoid whole-project scan
+- do not inspect unrelated systems
+
+During edit:
+- small diff
+- reuse existing code
+- no broad refactor
+- no unrelated rewrite
+- keep model/view split
+
+After edit:
+- run relevant tests if possible
+- report only result
+- mention failed tests with cause
+- mention manual checks
+
+If unclear:
+- make safe local choice
+- state assumption in one short line
+- ask only if blocked
+
+## Report Format
+
+Use this exact format:
+
+Done.
+
+Changed:
+- path/file.cs
+- path/file.cs
+
+Tests:
+- Compile: pass/fail/not run
+- EditMode: pass/fail/not run
+
+Manual:
+- FactoryDebug Play: pass/fail/not run
+- Feature check: pass/fail/not run
+
+Risk:
+- short note
+
+Next:
+- short next step
+
+No extra closing text.

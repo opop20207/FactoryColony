@@ -237,7 +237,8 @@ namespace FactoryColony
             GUILayout.Label("Hovered Building Inventory: " + GetHoveredBuildingInventoryText(), _labelStyle);
             GUILayout.Label("Last Removal Result: " + GetLastRemovalResultText(), _labelStyle);
             GUILayout.Label("Press C: Collect Storage Resources", _labelStyle);
-            GUILayout.Label("F5: Save / F9: Load", _labelStyle);
+            GUILayout.Label("WASD/Arrows: Player | Shift+Move: Camera | Wheel: Zoom | F: Follow", _labelStyle);
+            GUILayout.Label("R Rotate | LMB Place | RMB Select | Del Remove | C Collect | F5/F9 Save/Load", _labelStyle);
             GUILayout.Label("Save Path: " + GetSavePathText(), _labelStyle);
             GUILayout.Label("Last Save Result: " + GetLastSaveResultText(), _labelStyle);
             GUILayout.Label("Last Load Result: " + GetLastLoadResultText(), _labelStyle);

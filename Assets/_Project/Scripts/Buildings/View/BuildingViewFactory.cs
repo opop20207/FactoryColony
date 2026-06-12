@@ -8,6 +8,12 @@ namespace FactoryColony
         [SerializeField] private Transform buildingsRoot;
 
         private readonly List<GameObject> _buildingObjects = new List<GameObject>();
+        private readonly List<BuildingView> _buildingViews = new List<BuildingView>();
+
+        public IReadOnlyList<BuildingView> BuildingViews
+        {
+            get { return _buildingViews; }
+        }
 
         public void Build(GridModel model, float cellSize)
         {
@@ -48,6 +54,18 @@ namespace FactoryColony
             buildingView.Initialize(building, cellSize);
 
             _buildingObjects.Add(buildingObject);
+            _buildingViews.Add(buildingView);
+        }
+
+        public void RefreshInventoryVisuals()
+        {
+            foreach (BuildingView buildingView in _buildingViews)
+            {
+                if (buildingView != null)
+                {
+                    buildingView.RefreshInventoryVisual();
+                }
+            }
         }
 
         private void ClearBuildings()
@@ -58,6 +76,7 @@ namespace FactoryColony
             }
 
             _buildingObjects.Clear();
+            _buildingViews.Clear();
         }
 
         private static void DestroyObject(GameObject target)

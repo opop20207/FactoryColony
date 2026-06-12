@@ -29,6 +29,12 @@ namespace FactoryColony
 
         private void MoveCamera()
         {
+            if (!PlayerInputReader.IsKeyPressed(UnityEngine.InputSystem.Key.LeftShift)
+                && !PlayerInputReader.IsKeyPressed(UnityEngine.InputSystem.Key.RightShift))
+            {
+                return;
+            }
+
             Vector2 moveInput = PlayerInputReader.GetMoveInput();
             float horizontal = moveInput.x;
             float vertical = moveInput.y;

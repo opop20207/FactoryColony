@@ -87,6 +87,41 @@ namespace FactoryColony.Tests.EditMode.Factory
         }
 
         [Test]
+        public void CollectFromStorage_CollectsOnlyGivenStorage()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel baseInventory = new BaseInventoryModel();
+            BuildingModel firstStorage = PlaceBuilding(gridModel, "storage-1", BuildingType.Storage, new GridPosition(1, 1));
+            BuildingModel secondStorage = PlaceBuilding(gridModel, "storage-2", BuildingType.Storage, new GridPosition(2, 1));
+            firstStorage.Inventory.Add(ResourceType.IronPlate, 4);
+            secondStorage.Inventory.Add(ResourceType.IronPlate, 7);
+            StorageCollector collector = new StorageCollector(gridModel, baseInventory);
+
+            IReadOnlyDictionary<ResourceType, int> collected = collector.CollectFromStorage(firstStorage);
+
+            Assert.AreEqual(4, collected[ResourceType.IronPlate]);
+            Assert.AreEqual(4, baseInventory.GetAmount(ResourceType.IronPlate));
+            Assert.IsTrue(firstStorage.Inventory.IsEmpty);
+            Assert.AreEqual(7, secondStorage.Inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
+        public void CollectFromStorage_ReturnsEmptyForNonStorage()
+        {
+            GridModel gridModel = new GridModel(10, 10);
+            BaseInventoryModel baseInventory = new BaseInventoryModel();
+            BuildingModel conveyor = PlaceBuilding(gridModel, "conveyor-1", BuildingType.Conveyor, new GridPosition(1, 1));
+            conveyor.Inventory.Add(ResourceType.IronPlate, 4);
+            StorageCollector collector = new StorageCollector(gridModel, baseInventory);
+
+            IReadOnlyDictionary<ResourceType, int> collected = collector.CollectFromStorage(conveyor);
+
+            Assert.AreEqual(0, collected.Count);
+            Assert.AreEqual(0, baseInventory.GetAmount(ResourceType.IronPlate));
+            Assert.AreEqual(4, conveyor.Inventory.GetAmount(ResourceType.IronPlate));
+        }
+
+        [Test]
         public void CollectResource_CollectsOnlyRequestedResource()
         {
             GridModel gridModel = new GridModel(10, 10);
