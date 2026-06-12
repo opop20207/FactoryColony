@@ -8,6 +8,7 @@ namespace FactoryColony
         Smelter = 3,
         Storage = 4,
         Generator = 5,
-        Assembler = 6
+        Assembler = 6,
+        ResearchLab = 7
     }
 }

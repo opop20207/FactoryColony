@@ -8,11 +8,22 @@ namespace FactoryColony
     {
         private BuildMenuView _view;
         private BuildingPlacementPreview _preview;
+        private IReadOnlyList<BuildingDefinition> _definitions;
+        private ResearchSystem _researchSystem;
 
         public void Initialize(
             BuildMenuView view,
             BuildingPlacementPreview preview,
             IReadOnlyList<BuildingDefinition> definitions)
+        {
+            Initialize(view, preview, definitions, null);
+        }
+
+        public void Initialize(
+            BuildMenuView view,
+            BuildingPlacementPreview preview,
+            IReadOnlyList<BuildingDefinition> definitions,
+            ResearchSystem researchSystem)
         {
             if (_view != null)
             {
@@ -22,15 +33,43 @@ namespace FactoryColony
 
             _view = view;
             _preview = preview;
+            _definitions = definitions;
+            _researchSystem = researchSystem;
 
             if (_view == null)
             {
                 return;
             }
 
-            _view.Initialize(definitions);
+            Refresh();
             _view.OnBuildingSelected += HandleBuildingSelected;
             _view.OnSelectionCleared += HandleSelectionCleared;
+        }
+
+        public void Refresh()
+        {
+            if (_view == null)
+            {
+                return;
+            }
+
+            if (_definitions == null || _researchSystem == null)
+            {
+                _view.Initialize(_definitions);
+                return;
+            }
+
+            List<BuildingDefinition> unlockedDefinitions = new List<BuildingDefinition>();
+
+            foreach (BuildingDefinition definition in _definitions)
+            {
+                if (_researchSystem.IsBuildingUnlocked(definition.Id))
+                {
+                    unlockedDefinitions.Add(definition);
+                }
+            }
+
+            _view.Initialize(unlockedDefinitions);
         }
 
         private void OnDestroy()

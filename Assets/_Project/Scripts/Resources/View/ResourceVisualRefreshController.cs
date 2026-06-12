@@ -36,6 +36,7 @@ namespace FactoryColony
             if (_buildingViewFactory != null)
             {
                 _buildingViewFactory.RefreshInventoryVisuals();
+                _buildingViewFactory.RefreshPowerStatusVisuals();
             }
         }
 

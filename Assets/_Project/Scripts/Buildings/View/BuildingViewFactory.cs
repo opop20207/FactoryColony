@@ -9,6 +9,7 @@ namespace FactoryColony
 
         private readonly List<GameObject> _buildingObjects = new List<GameObject>();
         private readonly List<BuildingView> _buildingViews = new List<BuildingView>();
+        private PowerStatusService _powerStatusService;
 
         public IReadOnlyList<BuildingView> BuildingViews
         {
@@ -24,6 +25,11 @@ namespace FactoryColony
             {
                 CreateBuildingView(building, cellSize);
             }
+        }
+
+        public void SetPowerStatusService(PowerStatusService service)
+        {
+            _powerStatusService = service;
         }
 
         private void EnsureBuildingsRoot()
@@ -51,7 +57,7 @@ namespace FactoryColony
             buildingObject.transform.SetParent(buildingsRoot, false);
 
             BuildingView buildingView = buildingObject.AddComponent<BuildingView>();
-            buildingView.Initialize(building, cellSize);
+            buildingView.Initialize(building, cellSize, _powerStatusService);
 
             _buildingObjects.Add(buildingObject);
             _buildingViews.Add(buildingView);
@@ -64,6 +70,17 @@ namespace FactoryColony
                 if (buildingView != null)
                 {
                     buildingView.RefreshInventoryVisual();
+                }
+            }
+        }
+
+        public void RefreshPowerStatusVisuals()
+        {
+            foreach (BuildingView buildingView in _buildingViews)
+            {
+                if (buildingView != null)
+                {
+                    buildingView.RefreshPowerStatusVisual();
                 }
             }
         }

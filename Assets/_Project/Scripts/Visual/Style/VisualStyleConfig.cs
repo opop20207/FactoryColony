@@ -18,12 +18,19 @@ namespace FactoryColony
         public static readonly Color StorageColor = new Color(0.28f, 0.56f, 0.34f);
         public static readonly Color GeneratorColor = new Color(0.78f, 0.64f, 0.28f);
         public static readonly Color AssemblerColor = new Color(0.18f, 0.62f, 0.58f);
+        public static readonly Color ResearchLabColor = new Color(0.45f, 0.42f, 0.76f);
 
         public static readonly Color PreviewValidColor = new Color(0.2f, 0.85f, 0.38f, 0.5f);
         public static readonly Color PreviewInvalidColor = new Color(0.95f, 0.22f, 0.18f, 0.5f);
         public static readonly Color SelectionColor = new Color(0.16f, 0.72f, 1f, 0.42f);
         public static readonly Color HoverColor = new Color(1f, 0.88f, 0.22f, 0.52f);
         public static readonly Color InteractionColor = new Color(1f, 0.78f, 0.18f, 0.38f);
+
+        public static readonly Color PowerOkColor = new Color(0.28f, 0.9f, 0.48f);
+        public static readonly Color PowerLowColor = new Color(1f, 0.18f, 0.12f);
+        public static readonly Color PowerIdleColor = new Color(0.55f, 0.58f, 0.6f);
+        public static readonly Color PowerProducerColor = new Color(0.78f, 0.9f, 0.38f);
+        public static readonly Color PowerConsumerColor = new Color(0.3f, 0.66f, 0.95f);
 
         public static readonly Color LightAccentColor = new Color(1f, 0.83f, 0.38f);
         public static readonly Color DarkAccentColor = new Color(0.12f, 0.14f, 0.15f);
@@ -49,6 +56,8 @@ namespace FactoryColony
                     return GeneratorColor;
                 case BuildingType.Assembler:
                     return AssemblerColor;
+                case BuildingType.ResearchLab:
+                    return ResearchLabColor;
                 default:
                     return new Color(0.76f, 0.76f, 0.72f);
             }

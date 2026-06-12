@@ -67,6 +67,17 @@ namespace FactoryColony
             return baseInventory;
         }
 
+        public PlayerInventoryModel RestorePlayerInventory(FactorySaveData saveData)
+        {
+            PlayerInventorySaveData playerInventorySaveData = saveData != null ? saveData.PlayerInventory : null;
+            int maxTotalAmount = playerInventorySaveData != null && playerInventorySaveData.MaxTotalAmount > 0
+                ? playerInventorySaveData.MaxTotalAmount
+                : PlayerInventoryModel.DefaultMaxTotalAmount;
+            PlayerInventoryModel playerInventory = new PlayerInventoryModel(maxTotalAmount);
+            RestoreInventory(playerInventory.Inventory, playerInventorySaveData != null ? playerInventorySaveData.Inventory : null);
+            return playerInventory;
+        }
+
         public void RestoreGoals(FactorySaveData saveData, GoalTracker goalTracker)
         {
             if (goalTracker == null)
@@ -75,6 +86,16 @@ namespace FactoryColony
             }
 
             goalTracker.UpdateGoals();
+        }
+
+        public void RestoreResearch(FactorySaveData saveData, ResearchStateModel researchState)
+        {
+            if (researchState == null)
+            {
+                return;
+            }
+
+            researchState.RestoreCompleted(saveData != null ? saveData.CompletedResearchIds : null);
         }
 
         private void RestoreBuilding(

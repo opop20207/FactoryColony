@@ -26,6 +26,9 @@ namespace FactoryColony
                 case BuildingType.Assembler:
                     BuildAssembler(building, parent, width, depth, cellSize);
                     break;
+                case BuildingType.ResearchLab:
+                    BuildResearchLab(building, parent, width, depth, cellSize);
+                    break;
                 default:
                     CreatePart("Body", PrimitiveType.Cube, parent, Vector3.zero, new Vector3(width * 0.78f, 0.42f, depth * 0.78f), VisualStyleConfig.GetBuildingColor(building.Definition.Type));
                     break;
@@ -81,6 +84,16 @@ namespace FactoryColony
             CreatePart("ArmA", PrimitiveType.Cube, parent, new Vector3(-width * 0.27f, 0.58f, depth * 0.05f), new Vector3(width * 0.14f, 0.16f, depth * 0.5f), VisualStyleConfig.DarkAccentColor);
             CreatePart("ArmB", PrimitiveType.Cube, parent, new Vector3(width * 0.27f, 0.58f, -depth * 0.05f), new Vector3(width * 0.14f, 0.16f, depth * 0.5f), VisualStyleConfig.DarkAccentColor);
             CreateDirectionPort("OutputPort", building.Direction, parent, width, depth, 0.5f, cellSize, VisualStyleConfig.LightAccentColor);
+        }
+
+        private static void BuildResearchLab(BuildingModel building, Transform parent, float width, float depth, float cellSize)
+        {
+            Color color = VisualStyleConfig.ResearchLabColor;
+            CreatePart("ResearchBase", PrimitiveType.Cube, parent, new Vector3(0f, 0.24f, 0f), new Vector3(width * 0.72f, 0.48f, depth * 0.72f), color);
+            CreatePart("Dome", PrimitiveType.Sphere, parent, new Vector3(0f, 0.66f, 0f), new Vector3(width * 0.32f, cellSize * 0.28f, depth * 0.32f), ScaleColor(color, 1.18f));
+            CreatePart("Antenna", PrimitiveType.Cylinder, parent, new Vector3(width * 0.18f, 0.98f, depth * 0.12f), new Vector3(cellSize * 0.08f, cellSize * 0.42f, cellSize * 0.08f), VisualStyleConfig.LightAccentColor);
+            CreatePart("SignalCap", PrimitiveType.Sphere, parent, new Vector3(width * 0.18f, 1.22f, depth * 0.12f), new Vector3(cellSize * 0.14f, cellSize * 0.14f, cellSize * 0.14f), VisualStyleConfig.LightAccentColor);
+            CreateDirectionPort("DirectionIndicator", building.Direction, parent, width, depth, 0.58f, cellSize, VisualStyleConfig.LightAccentColor);
         }
 
         private static void CreateDirectionPort(string name, BuildingDirection direction, Transform parent, float width, float depth, float y, float cellSize, Color color)

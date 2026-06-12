@@ -11,10 +11,13 @@ namespace FactoryColony
         private GridModel _gridModel;
         private BuildingSelectionController _selectionController;
         private StorageCollectionController _storageCollectionController;
+        private PlayerInventoryTransferService _transferService;
+        private ResourceVisualRefreshController _resourceVisualRefreshController;
         private float _cellSize = 1f;
 
         public BuildingModel NearbyBuilding { get; private set; }
         public string LastInteractionResult { get; private set; } = "None";
+        public string LastPlayerInventoryResult { get; private set; } = "None";
 
         public void Initialize(
             GridModel gridModel,
@@ -22,29 +25,59 @@ namespace FactoryColony
             StorageCollectionController storageCollectionController,
             float cellSize)
         {
+            Initialize(gridModel, selectionController, storageCollectionController, null, null, cellSize);
+        }
+
+        public void Initialize(
+            GridModel gridModel,
+            BuildingSelectionController selectionController,
+            StorageCollectionController storageCollectionController,
+            PlayerInventoryTransferService transferService,
+            ResourceVisualRefreshController resourceVisualRefreshController,
+            float cellSize)
+        {
             _gridModel = gridModel;
             _selectionController = selectionController;
             _storageCollectionController = storageCollectionController;
+            _transferService = transferService;
+            _resourceVisualRefreshController = resourceVisualRefreshController;
             _cellSize = cellSize > 0f ? cellSize : 1f;
             LastInteractionResult = "Ready";
+            LastPlayerInventoryResult = transferService != null ? "Ready" : "Player inventory not initialized.";
         }
 
         private void Update()
         {
             RefreshNearbyBuilding();
 
-            if (!PlayerInputReader.WasKeyPressedThisFrame(Key.E) || IsPointerOverUi())
+            if (IsPointerOverUi())
             {
                 return;
             }
 
-            if (IsShiftPressed())
+            if (PlayerInputReader.WasKeyPressedThisFrame(Key.E))
             {
-                CollectNearbyStorage();
+                if (IsShiftPressed())
+                {
+                    CollectNearbyStorage();
+                    return;
+                }
+
+                SelectNearbyBuilding();
                 return;
             }
 
-            SelectNearbyBuilding();
+            if (PlayerInputReader.WasKeyPressedThisFrame(Key.Q))
+            {
+                TakeFromNearbyStorage();
+                return;
+            }
+
+            if (PlayerInputReader.WasKeyPressedThisFrame(Key.B))
+            {
+                DepositPlayerInventoryToBase();
+                return;
+            }
         }
 
         private void RefreshNearbyBuilding()
@@ -90,6 +123,37 @@ namespace FactoryColony
 
             _storageCollectionController.CollectStorage(NearbyBuilding);
             LastInteractionResult = "Collected from " + NearbyBuilding.InstanceId + ".";
+        }
+
+        private void TakeFromNearbyStorage()
+        {
+            if (NearbyBuilding == null || NearbyBuilding.Definition.Type != BuildingType.Storage)
+            {
+                LastPlayerInventoryResult = "No nearby Storage.";
+                return;
+            }
+
+            if (_transferService == null)
+            {
+                LastPlayerInventoryResult = "Player inventory is not initialized.";
+                return;
+            }
+
+            _transferService.TryTakeAnyFromStorage(NearbyBuilding, 10, out string message);
+            LastPlayerInventoryResult = message;
+            _resourceVisualRefreshController?.RefreshNow();
+        }
+
+        private void DepositPlayerInventoryToBase()
+        {
+            if (_transferService == null)
+            {
+                LastPlayerInventoryResult = "Player inventory is not initialized.";
+                return;
+            }
+
+            _transferService.DepositAllToBase(out string message);
+            LastPlayerInventoryResult = message;
         }
 
         private static bool IsShiftPressed()

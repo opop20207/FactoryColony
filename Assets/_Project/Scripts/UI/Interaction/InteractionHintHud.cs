@@ -4,7 +4,7 @@ namespace FactoryColony
 {
     public sealed class InteractionHintHud : MonoBehaviour
     {
-        private readonly Rect _panelRect = new Rect(500f, 12f, 320f, 82f);
+        private readonly Rect _panelRect = new Rect(500f, 12f, 320f, 104f);
         private PlayerInteractionController _interactionController;
         private GUIStyle _panelStyle;
         private GUIStyle _labelStyle;
@@ -26,8 +26,17 @@ namespace FactoryColony
                 && _interactionController.NearbyBuilding.Definition.Type == BuildingType.Storage)
             {
                 GUILayout.Label("Shift+E: Collect Storage", _labelStyle);
+                GUILayout.Label("Q: Take to Player Inventory", _labelStyle);
             }
 
+            if (_interactionController != null
+                && _interactionController.NearbyBuilding != null
+                && _interactionController.NearbyBuilding.Definition.Type == BuildingType.ResearchLab)
+            {
+                GUILayout.Label("T: Open Research", _labelStyle);
+            }
+
+            GUILayout.Label("B: Deposit Player Inventory", _labelStyle);
             GUILayout.Label("Last: " + GetLastInteractionText(), _labelStyle);
             GUILayout.EndArea();
         }

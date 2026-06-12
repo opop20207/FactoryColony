@@ -21,6 +21,25 @@ namespace FactoryColony
             BaseInventoryModel baseInventory,
             GoalTracker goalTracker)
         {
+            return CreateSaveData(gridModel, baseInventory, goalTracker, null, null);
+        }
+
+        public FactorySaveData CreateSaveData(
+            GridModel gridModel,
+            BaseInventoryModel baseInventory,
+            GoalTracker goalTracker,
+            ResearchStateModel researchState)
+        {
+            return CreateSaveData(gridModel, baseInventory, goalTracker, researchState, null);
+        }
+
+        public FactorySaveData CreateSaveData(
+            GridModel gridModel,
+            BaseInventoryModel baseInventory,
+            GoalTracker goalTracker,
+            ResearchStateModel researchState,
+            PlayerInventoryModel playerInventory)
+        {
             if (gridModel == null)
             {
                 throw new ArgumentNullException(nameof(gridModel));
@@ -67,6 +86,12 @@ namespace FactoryColony
 
             saveData.BaseInventory.Inventory = CreateInventorySaveData(baseInventory.Inventory);
 
+            if (playerInventory != null)
+            {
+                saveData.PlayerInventory.MaxTotalAmount = playerInventory.MaxTotalAmount;
+                saveData.PlayerInventory.Inventory = CreateInventorySaveData(playerInventory.Inventory);
+            }
+
             if (goalTracker != null)
             {
                 foreach (ProductionGoalModel goal in goalTracker.Goals)
@@ -77,6 +102,14 @@ namespace FactoryColony
                         CurrentAmount = goal.CurrentAmount,
                         IsCompleted = goal.IsCompleted
                     });
+                }
+            }
+
+            if (researchState != null)
+            {
+                foreach (string researchId in researchState.GetCompletedResearchIds())
+                {
+                    saveData.CompletedResearchIds.Add(researchId);
                 }
             }
 

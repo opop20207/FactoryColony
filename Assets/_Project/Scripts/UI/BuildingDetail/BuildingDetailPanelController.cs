@@ -21,6 +21,11 @@ namespace FactoryColony
             RefreshPanel();
         }
 
+        public void RefreshNow()
+        {
+            RefreshPanel();
+        }
+
         private void RefreshPanel()
         {
             if (_panelView == null)

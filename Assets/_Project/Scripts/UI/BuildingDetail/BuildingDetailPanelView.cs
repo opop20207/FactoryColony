@@ -8,6 +8,20 @@ namespace FactoryColony
         private Text _titleText;
         private Text _bodyText;
         private Image _background;
+        private RecipeSelectionService _recipeSelectionService;
+        private PowerStatusService _powerStatusService;
+
+        public void Initialize(RecipeSelectionService recipeSelectionService)
+        {
+            Initialize(recipeSelectionService, null);
+        }
+
+        public void Initialize(RecipeSelectionService recipeSelectionService, PowerStatusService powerStatusService)
+        {
+            _recipeSelectionService = recipeSelectionService;
+            _powerStatusService = powerStatusService;
+            EnsureLayout();
+        }
 
         public void ShowBuilding(BuildingModel building)
         {
@@ -27,8 +41,11 @@ namespace FactoryColony
                 + "Size: " + GetSizeText(building) + "\n"
                 + "Power Production: " + building.Definition.PowerProduction + "\n"
                 + "Power Consumption: " + building.Definition.PowerConsumption + "\n"
+                + "Operational Status: " + GetOperationalStatusText(building) + "\n"
+                + "Reason: " + GetOperationalReasonText(building) + "\n"
                 + "Inventory: " + ResourceTextFormatter.FormatInventory(building.Inventory) + "\n"
                 + "Selected Recipe: " + GetSelectedRecipeText(building) + "\n"
+                + GetRecipeDetailText(building)
                 + "Can Store Resources: " + building.CanStoreResources + "\n"
                 + "Can Produce Resources: " + building.CanProduceResources;
 
@@ -62,7 +79,7 @@ namespace FactoryColony
             rectTransform.anchorMax = new Vector2(1f, 1f);
             rectTransform.pivot = new Vector2(1f, 1f);
             rectTransform.anchoredPosition = new Vector2(-12f, -12f);
-            rectTransform.sizeDelta = new Vector2(340f, 330f);
+            rectTransform.sizeDelta = new Vector2(340f, 365f);
 
             if (_background == null)
             {
@@ -125,7 +142,7 @@ namespace FactoryColony
                 layoutElement = textObject.AddComponent<LayoutElement>();
             }
 
-            layoutElement.preferredHeight = objectName == "Title" ? 28f : 245f;
+            layoutElement.preferredHeight = objectName == "Title" ? 28f : 280f;
 
             return text;
         }
@@ -147,6 +164,62 @@ namespace FactoryColony
         private static string GetSelectedRecipeText(BuildingModel building)
         {
             return string.IsNullOrEmpty(building.SelectedRecipeId) ? "None" : building.SelectedRecipeId;
+        }
+
+        private string GetOperationalStatusText(BuildingModel building)
+        {
+            if (_powerStatusService == null)
+            {
+                return "N/A";
+            }
+
+            return _powerStatusService.GetStatusFor(building).ToString();
+        }
+
+        private string GetOperationalReasonText(BuildingModel building)
+        {
+            if (_powerStatusService == null)
+            {
+                return "N/A";
+            }
+
+            BuildingOperationalStatus status = _powerStatusService.GetStatusFor(building);
+
+            switch (status)
+            {
+                case BuildingOperationalStatus.Operating:
+                    return "Operating";
+                case BuildingOperationalStatus.NoPower:
+                    return "No power";
+                case BuildingOperationalStatus.NotApplicable:
+                    return "Not applicable";
+                case BuildingOperationalStatus.Idle:
+                    return "Idle";
+                default:
+                    return "None";
+            }
+        }
+
+        private string GetRecipeDetailText(BuildingModel building)
+        {
+            if (building == null || building.Definition.Type != BuildingType.Assembler)
+            {
+                return string.Empty;
+            }
+
+            RecipeModel recipe = _recipeSelectionService != null
+                ? _recipeSelectionService.GetSelectedRecipe(building)
+                : null;
+
+            if (recipe == null)
+            {
+                return "Current Recipe: None\nRecipe Inputs: None\nRecipe Outputs: None\nRecipe Panel: Y\n";
+            }
+
+            return "Current Recipe: " + recipe.DisplayName + "\n"
+                + "Recipe Inputs: " + ResourceTextFormatter.FormatCost(recipe.Inputs) + "\n"
+                + "Recipe Outputs: " + ResourceTextFormatter.FormatCost(recipe.Outputs) + "\n"
+                + "Recipe Panel: Y\n";
         }
     }
 }

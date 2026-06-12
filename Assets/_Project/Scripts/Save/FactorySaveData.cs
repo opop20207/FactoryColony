@@ -8,7 +8,9 @@ namespace FactoryColony
     {
         public GridSaveData Grid = new GridSaveData();
         public BaseInventorySaveData BaseInventory = new BaseInventorySaveData();
+        public PlayerInventorySaveData PlayerInventory = new PlayerInventorySaveData();
         public List<GoalSaveData> Goals = new List<GoalSaveData>();
+        public List<string> CompletedResearchIds = new List<string>();
     }
 
     [Serializable]
@@ -57,6 +59,13 @@ namespace FactoryColony
     [Serializable]
     public sealed class BaseInventorySaveData
     {
+        public InventorySaveData Inventory = new InventorySaveData();
+    }
+
+    [Serializable]
+    public sealed class PlayerInventorySaveData
+    {
+        public int MaxTotalAmount = PlayerInventoryModel.DefaultMaxTotalAmount;
         public InventorySaveData Inventory = new InventorySaveData();
     }
 

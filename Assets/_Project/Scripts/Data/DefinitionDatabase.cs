@@ -11,6 +11,7 @@ namespace FactoryColony
         [SerializeField] private List<BuildingDefinitionAsset> buildings = new List<BuildingDefinitionAsset>();
         [SerializeField] private List<RecipeDefinitionAsset> recipes = new List<RecipeDefinitionAsset>();
         [SerializeField] private List<ResourceDefinitionAsset> resources = new List<ResourceDefinitionAsset>();
+        [SerializeField] private List<ResearchDefinitionAsset> researches = new List<ResearchDefinitionAsset>();
 
         public IReadOnlyDictionary<string, BuildingDefinition> CreateBuildingDefinitions()
         {
@@ -56,6 +57,25 @@ namespace FactoryColony
                 .Values
                 .OrderBy(definition => definition.Type)
                 .ToArray();
+        }
+
+        public IReadOnlyDictionary<string, ResearchDefinition> CreateResearchDefinitions()
+        {
+            Dictionary<string, ResearchDefinition> definitions = new Dictionary<string, ResearchDefinition>();
+
+            foreach (ResearchDefinitionAsset asset in researches)
+            {
+                if (asset == null)
+                {
+                    Debug.LogWarning("DefinitionDatabase skipped a null research asset.");
+                    continue;
+                }
+
+                ResearchDefinition research = asset.ToModel();
+                AddUnique(definitions, research.Id, research, "research");
+            }
+
+            return definitions;
         }
 
         public BuildingDefinition GetBuildingModel(string id)

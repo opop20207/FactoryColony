@@ -48,6 +48,7 @@ Current controls:
 - LeftShift + WASD / Arrow Keys: move camera
 - Mouse Wheel: zoom camera
 - F: toggle camera follow
+- T: toggle Research panel
 - E: select nearby building
 - Shift+E: collect nearby Storage resources
 - Mouse Hover: highlight grid cell
@@ -106,15 +107,63 @@ Player interaction:
 - Nearby buildings are detected from the player's XZ position and building occupied cells.
 - `E` selects the nearby building and shows it in the Building Detail panel.
 - `Shift+E` collects resources from the nearby Storage only.
+- `Q` takes up to 10 resources from nearby Storage into Player Inventory.
+- `B` deposits all Player Inventory resources into Base Inventory.
+- `Y` opens the Recipe Panel for the selected Assembler.
 - Mouse right-click selection and `C` collect-all Storage remain available.
 - Proximity interaction does not change recipes, upgrades, build rules, or equipment.
-- Combat, player inventory, and gear systems are not implemented yet.
+- Combat and gear systems are not implemented yet.
+
+Player inventory:
+- Player Inventory is separate from Base Inventory.
+- It is a simple resource-count inventory with a max total capacity of 100.
+- Storage transfer is first-pass: `Q` takes any available resource from nearby Storage.
+- `B` deposits the player's carried resources into Base Inventory.
+- Construction and research costs still use Base Inventory only.
+- Slot UI, drag/drop, equipment, item use, and weight penalties are not implemented.
+- FactoryDebug save/load includes Player Inventory resources and capacity.
+
+Research system:
+- Research is first-pass and completes instantly.
+- Costs are paid from Base Inventory.
+- Completed ids are stored in `ResearchStateModel`.
+- BuildMenu filters buildings by research unlock state.
+- ScriptableObject research assets are data input only; runtime uses pure `ResearchDefinition`.
+- There is no node graph, research time, or research queue yet.
+
+Research Lab:
+- ResearchLab is a first-pass building that gates Research panel access.
+- `T` opens Research only when at least one ResearchLab exists.
+- Research still completes instantly; there is no research time, queue, or lab productivity.
+- ResearchLab is basic/default unlocked in debug fallback data.
+- `ResearchAccessService` only checks ResearchLab existence.
+- ResearchLab consumes power, but low power does not block research yet.
+- If using ScriptableObject data, create a ResearchLab Building Definition asset or debug fallback supplies it.
+
+Recipe selection:
+- Recipe selection UI is first-pass and opens with `Y`.
+- It is currently focused on Assembler recipes.
+- Recipe buttons update `BuildingModel.SelectedRecipeId`.
+- If ResearchSystem is available, only unlocked recipes are shown/selectable.
+- Smelter recipe selection is not implemented yet.
+- `RecipeSelectionService` uses pure `RecipeModel` dictionaries; ScriptableObjects are converted before runtime use.
+
+Power / operational status:
+- Power status visualization is a first-pass HUD and building marker feature.
+- Power uses the existing global enough/not-enough calculation.
+- There is no partial power allocation yet.
+- Wires, power poles, networks, and batteries are not implemented.
+- `NoPower` is currently a View/HUD status and does not add new simulation rules.
+- Existing `FactorySimulation` power behavior is unchanged.
+- Delete one or more Generators in FactoryDebug to check `LOW POWER`.
+- ResearchLab can show `NoPower`, but low power does not block research yet.
 
 ScriptableObject data definitions:
 - Create building data with `Create > FactoryColony > Data > Building Definition`.
 - Create recipe data with `Create > FactoryColony > Data > Recipe Definition`.
 - Create resource display data with `Create > FactoryColony > Data > Resource Definition`.
 - Create a database with `Create > FactoryColony > Data > Definition Database`.
+- Research assets can be created with `Create > FactoryColony > Data > Research Definition`.
 - Put assets under `Assets/_Project/ScriptableObjects/Buildings`, `Recipes`, and `Resources`.
 - Assign the database to `FactoryDebugSceneBootstrap.definitionDatabase`.
 - If no database is assigned, FactoryDebug uses `DebugBuildingDefinitions` and default recipes.

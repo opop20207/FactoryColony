@@ -84,6 +84,29 @@ namespace FactoryColony
                         0,
                         5,
                         Cost(ResourceType.IronPlate, 12, ResourceType.CopperWire, 8, ResourceType.Gear, 2))
+                },
+                {
+                    BuildingType.ResearchLab,
+                    new BuildingDefinition(
+                        "ResearchLab",
+                        BuildingType.ResearchLab,
+                        "Research Lab",
+                        2,
+                        2,
+                        false,
+                        ResourceType.None,
+                        true,
+                        0,
+                        3,
+                        Cost(
+                            ResourceType.IronPlate,
+                            20,
+                            ResourceType.CopperWire,
+                            15,
+                            ResourceType.Gear,
+                            5,
+                            ResourceType.BasicCircuit,
+                            2))
                 }
             };
 
@@ -111,7 +134,8 @@ namespace FactoryColony
                 Get(BuildingType.Smelter),
                 Get(BuildingType.Storage),
                 Get(BuildingType.Generator),
-                Get(BuildingType.Assembler)
+                Get(BuildingType.Assembler),
+                Get(BuildingType.ResearchLab)
             };
         }
 
@@ -174,6 +198,25 @@ namespace FactoryColony
                 { firstType, firstAmount },
                 { secondType, secondAmount },
                 { thirdType, thirdAmount }
+            };
+        }
+
+        private static IReadOnlyDictionary<ResourceType, int> Cost(
+            ResourceType firstType,
+            int firstAmount,
+            ResourceType secondType,
+            int secondAmount,
+            ResourceType thirdType,
+            int thirdAmount,
+            ResourceType fourthType,
+            int fourthAmount)
+        {
+            return new Dictionary<ResourceType, int>
+            {
+                { firstType, firstAmount },
+                { secondType, secondAmount },
+                { thirdType, thirdAmount },
+                { fourthType, fourthAmount }
             };
         }
     }

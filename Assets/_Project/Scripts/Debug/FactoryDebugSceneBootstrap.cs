@@ -33,11 +33,17 @@ namespace FactoryColony
         [SerializeField] private PlayerInteractionController playerInteractionController;
         [SerializeField] private InteractionHighlightView interactionHighlightView;
         [SerializeField] private InteractionHintHud interactionHintHud;
+        [SerializeField] private ResearchPanelView researchPanelView;
+        [SerializeField] private ResearchPanelController researchPanelController;
+        [SerializeField] private PlayerInventoryHud playerInventoryHud;
+        [SerializeField] private RecipeSelectionPanelView recipeSelectionPanelView;
+        [SerializeField] private RecipeSelectionPanelController recipeSelectionPanelController;
 
         private bool _initialized;
         private IReadOnlyDictionary<string, BuildingDefinition> _buildingDefinitionsById;
         private IReadOnlyDictionary<BuildingType, BuildingDefinition> _buildingDefinitionsByType;
         private IReadOnlyList<BuildingDefinition> _buildMenuDefinitions;
+        private IReadOnlyDictionary<string, ResearchDefinition> _researchDefinitions;
         private RecipeCatalog _recipeCatalog;
 
         private void Start()
@@ -68,20 +74,38 @@ namespace FactoryColony
                 initializationStep = "Create BaseInventoryModel";
                 BaseInventoryModel baseInventory = CreateBaseInventory();
 
+                initializationStep = "Create PlayerInventoryModel";
+                PlayerInventoryModel playerInventory = CreatePlayerInventory();
+
                 initializationStep = "Create GoalTracker";
                 GoalTracker goalTracker = CreateGoalTracker(baseInventory);
 
                 initializationStep = "Load definitions";
                 LoadDefinitions();
 
+                initializationStep = "Create research system";
+                ResearchStateModel researchState = CreateInitialResearchState();
+                ResearchSystem researchSystem = new ResearchSystem(_researchDefinitions, researchState, baseInventory);
+
                 initializationStep = "Place initial buildings";
                 PlaceDebugBuildings(model);
+
+                initializationStep = "Create research access service";
+                ResearchAccessService researchAccessService = new ResearchAccessService(model);
 
                 initializationStep = "Create FactorySimulation";
                 FactorySimulation simulation = new FactorySimulation(model, _recipeCatalog);
 
+                initializationStep = "Create power status service";
+                PowerStatusService powerStatusService = new PowerStatusService(model, simulation);
+
                 initializationStep = "Create StorageCollector";
                 StorageCollector storageCollector = new StorageCollector(model, baseInventory);
+
+                initializationStep = "Create recipe selection service";
+                RecipeSelectionService recipeSelectionService = new RecipeSelectionService(
+                    _recipeCatalog.Recipes.ToDictionary(recipe => recipe.Id),
+                    researchSystem);
 
                 initializationStep = "Setup camera";
                 SetupCamera();
@@ -94,6 +118,7 @@ namespace FactoryColony
                 gridView.Build(model);
 
                 initializationStep = "Build building views";
+                buildingViewFactory.SetPowerStatusService(powerStatusService);
                 buildingViewFactory.Build(model, gridView.CellSize);
 
                 initializationStep = "Setup mouse selector";
@@ -109,6 +134,7 @@ namespace FactoryColony
                 buildingSelectionController.Initialize(model, gridMouseSelector, buildingViewFactory, gridView.CellSize, baseInventory);
 
                 initializationStep = "Setup building detail panel";
+                buildingDetailPanelView.Initialize(recipeSelectionService, powerStatusService);
                 buildingDetailPanelController.Initialize(buildingSelectionController, buildingDetailPanelView);
 
                 initializationStep = "Setup number-key selection controller";
@@ -118,7 +144,7 @@ namespace FactoryColony
                 storageCollectionController.Initialize(storageCollector);
 
                 initializationStep = "Setup player interaction";
-                SetupPlayerInteraction(model, gridView.CellSize);
+                SetupPlayerInteraction(model, baseInventory, playerInventory, gridView.CellSize);
 
                 initializationStep = "Setup goals";
                 goalHudView.Initialize(goalTracker);
@@ -128,8 +154,13 @@ namespace FactoryColony
                 saveController.Initialize(
                     model,
                     baseInventory,
+                    playerInventory,
                     goalTracker,
+                    researchSystem,
+                    researchState,
+                    researchAccessService,
                     simulation,
+                    powerStatusService,
                     gridView,
                     buildingViewFactory,
                     gridMouseSelector,
@@ -143,14 +174,32 @@ namespace FactoryColony
                     debugHud,
                     goalHudView,
                     goalUpdateController,
+                    researchPanelView,
+                    researchPanelController,
+                    buildMenuController,
                     resourceVisualRefreshController,
                     playerInteractionController,
+                    playerInventoryHud,
+                    recipeSelectionPanelView,
+                    recipeSelectionPanelController,
                     _buildingDefinitionsById,
+                    _researchDefinitions,
                     _recipeCatalog,
                     gridView.CellSize);
 
                 initializationStep = "Setup build menu";
-                buildMenuController.Initialize(buildMenuView, placementPreview, _buildMenuDefinitions);
+                buildMenuController.Initialize(buildMenuView, placementPreview, _buildMenuDefinitions, researchSystem);
+
+                initializationStep = "Setup research panel";
+                researchPanelController.Initialize(researchPanelView, researchSystem, buildMenuController, researchAccessService);
+
+                initializationStep = "Setup recipe panel";
+                recipeSelectionPanelController.Initialize(
+                    buildingSelectionController,
+                    recipeSelectionPanelView,
+                    recipeSelectionService,
+                    buildingDetailPanelController,
+                    resourceVisualRefreshController);
 
                 initializationStep = "Setup tick runner";
                 simulationTickRunner.Initialize(simulation);
@@ -168,7 +217,11 @@ namespace FactoryColony
                     buildingSelectionController,
                     baseInventory,
                     storageCollectionController,
-                    saveController);
+                    saveController,
+                    researchSystem,
+                    researchPanelController,
+                    playerInventory,
+                    powerStatusService);
 
                 _initialized = true;
             }
@@ -315,6 +368,9 @@ namespace FactoryColony
             EnsureBuildMenu();
             EnsureBuildingDetailPanel();
             EnsureGoalHud();
+            EnsureResearchPanel();
+            EnsureRecipeSelectionPanel();
+            EnsurePlayerInventoryHud();
             EnsureCameraController();
         }
 
@@ -458,6 +514,92 @@ namespace FactoryColony
             }
         }
 
+        private void EnsureResearchPanel()
+        {
+            EnsureEventSystem();
+
+            if (debugCanvas == null)
+            {
+                debugCanvas = FindObjectOfType<Canvas>();
+            }
+
+            if (debugCanvas == null)
+            {
+                GameObject canvasObject = new GameObject("FactoryDebugCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                debugCanvas = canvasObject.GetComponent<Canvas>();
+                debugCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+            }
+
+            if (researchPanelView == null)
+            {
+                researchPanelView = FindObjectOfType<ResearchPanelView>();
+            }
+
+            if (researchPanelView == null)
+            {
+                GameObject panelObject = new GameObject("ResearchPanelView", typeof(RectTransform), typeof(ResearchPanelView));
+                panelObject.transform.SetParent(debugCanvas.transform, false);
+                researchPanelView = panelObject.GetComponent<ResearchPanelView>();
+            }
+
+            if (researchPanelController == null)
+            {
+                researchPanelController = FindObjectOfType<ResearchPanelController>();
+            }
+
+            if (researchPanelController == null)
+            {
+                GameObject controllerObject = new GameObject("ResearchPanelController");
+                researchPanelController = controllerObject.AddComponent<ResearchPanelController>();
+            }
+        }
+
+        private void EnsurePlayerInventoryHud()
+        {
+            if (playerInventoryHud == null)
+            {
+                playerInventoryHud = FindObjectOfType<PlayerInventoryHud>();
+            }
+
+            if (playerInventoryHud == null)
+            {
+                GameObject hudObject = new GameObject("PlayerInventoryHud");
+                playerInventoryHud = hudObject.AddComponent<PlayerInventoryHud>();
+            }
+        }
+
+        private void EnsureRecipeSelectionPanel()
+        {
+            EnsureBuildMenu();
+
+            if (recipeSelectionPanelView == null)
+            {
+                recipeSelectionPanelView = FindObjectOfType<RecipeSelectionPanelView>();
+            }
+
+            if (recipeSelectionPanelView == null)
+            {
+                GameObject panelObject = new GameObject("RecipeSelectionPanel", typeof(RectTransform));
+                panelObject.transform.SetParent(debugCanvas.transform, false);
+                recipeSelectionPanelView = panelObject.AddComponent<RecipeSelectionPanelView>();
+            }
+
+            if (recipeSelectionPanelController == null)
+            {
+                recipeSelectionPanelController = FindObjectOfType<RecipeSelectionPanelController>();
+            }
+
+            if (recipeSelectionPanelController == null)
+            {
+                GameObject controllerObject = new GameObject("RecipeSelectionPanelController");
+                recipeSelectionPanelController = controllerObject.AddComponent<RecipeSelectionPanelController>();
+            }
+        }
+
         private static void EnsureEventSystem()
         {
             EventSystem eventSystem = FindObjectOfType<EventSystem>();
@@ -539,7 +681,11 @@ namespace FactoryColony
             follow.Initialize(playerView.transform);
         }
 
-        private void SetupPlayerInteraction(GridModel model, float cellSize)
+        private void SetupPlayerInteraction(
+            GridModel model,
+            BaseInventoryModel baseInventory,
+            PlayerInventoryModel playerInventory,
+            float cellSize)
         {
             if (playerView == null)
             {
@@ -556,11 +702,20 @@ namespace FactoryColony
                 playerInteractionController = playerView.gameObject.AddComponent<PlayerInteractionController>();
             }
 
+            PlayerInventoryTransferService transferService = new PlayerInventoryTransferService(playerInventory, baseInventory);
+
             playerInteractionController.Initialize(
                 model,
                 buildingSelectionController,
                 storageCollectionController,
+                transferService,
+                resourceVisualRefreshController,
                 cellSize);
+
+            if (playerInventoryHud != null)
+            {
+                playerInventoryHud.Initialize(playerInventory, playerInteractionController);
+            }
 
             if (interactionHighlightView == null)
             {
@@ -636,6 +791,7 @@ namespace FactoryColony
             TryPlace(model, CreateBuilding("generator-1", GetBuildingDefinition(BuildingType.Generator), new GridPosition(0, 6), BuildingDirection.East));
             TryPlace(model, CreateBuilding("generator-2", GetBuildingDefinition(BuildingType.Generator), new GridPosition(1, 6), BuildingDirection.East));
             TryPlace(model, CreateBuilding("generator-3", GetBuildingDefinition(BuildingType.Generator), new GridPosition(2, 6), BuildingDirection.East));
+            TryPlace(model, CreateBuilding("research-lab-1", GetBuildingDefinition(BuildingType.ResearchLab), new GridPosition(3, 6), BuildingDirection.East));
         }
 
         private static BuildingModel CreateBuilding(
@@ -692,6 +848,11 @@ namespace FactoryColony
             return inventory;
         }
 
+        private static PlayerInventoryModel CreatePlayerInventory()
+        {
+            return new PlayerInventoryModel(PlayerInventoryModel.DefaultMaxTotalAmount);
+        }
+
         private static GoalTracker CreateGoalTracker(BaseInventoryModel baseInventory)
         {
             return new GoalTracker(
@@ -707,6 +868,7 @@ namespace FactoryColony
                 {
                     IReadOnlyDictionary<string, BuildingDefinition> buildingDefinitions = definitionDatabase.CreateBuildingDefinitions();
                     IReadOnlyDictionary<string, RecipeModel> recipeDefinitions = definitionDatabase.CreateRecipeDefinitions();
+                    IReadOnlyDictionary<string, ResearchDefinition> researchDefinitions = definitionDatabase.CreateResearchDefinitions();
 
                     if (buildingDefinitions.Count > 0)
                     {
@@ -720,6 +882,11 @@ namespace FactoryColony
                     if (recipeDefinitions.Count > 0)
                     {
                         _recipeCatalog = new RecipeCatalog(recipeDefinitions.Values);
+                    }
+
+                    if (researchDefinitions.Count > 0)
+                    {
+                        _researchDefinitions = researchDefinitions;
                     }
                 }
             }
@@ -737,10 +904,44 @@ namespace FactoryColony
                     .ToDictionary(group => group.Key, group => group.First());
             }
 
+            EnsureResearchLabDefinition();
+
             if (_recipeCatalog == null)
             {
                 _recipeCatalog = RecipeCatalog.CreateDefault();
             }
+
+            if (_researchDefinitions == null)
+            {
+                _researchDefinitions = DebugResearchDefinitions.CreateDefinitions();
+            }
+        }
+
+        private ResearchStateModel CreateInitialResearchState()
+        {
+            ResearchStateModel state = new ResearchStateModel();
+            state.Complete(DebugResearchDefinitions.BasicAutomationId);
+            return state;
+        }
+
+        private void EnsureResearchLabDefinition()
+        {
+            if (_buildingDefinitionsByType != null && _buildingDefinitionsByType.ContainsKey(BuildingType.ResearchLab))
+            {
+                return;
+            }
+
+            BuildingDefinition researchLab = DebugBuildingDefinitions.Get(BuildingType.ResearchLab);
+            List<BuildingDefinition> buildMenuDefinitions = _buildMenuDefinitions != null
+                ? _buildMenuDefinitions.ToList()
+                : new List<BuildingDefinition>();
+
+            buildMenuDefinitions.Add(researchLab);
+            _buildMenuDefinitions = buildMenuDefinitions;
+            _buildingDefinitionsById = buildMenuDefinitions.ToDictionary(definition => definition.Id);
+            _buildingDefinitionsByType = buildMenuDefinitions
+                .GroupBy(definition => definition.Type)
+                .ToDictionary(group => group.Key, group => group.First());
         }
 
         private BuildingDefinition GetBuildingDefinition(BuildingType type)

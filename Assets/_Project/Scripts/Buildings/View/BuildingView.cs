@@ -7,6 +7,7 @@ namespace FactoryColony
     {
         private BuildingModel _building;
         private BuildingInventoryVisualView _inventoryVisualView;
+        private BuildingPowerStatusView _powerStatusView;
 
         public BuildingModel Building
         {
@@ -14,6 +15,11 @@ namespace FactoryColony
         }
 
         public void Initialize(BuildingModel building, float cellSize)
+        {
+            Initialize(building, cellSize, null);
+        }
+
+        public void Initialize(BuildingModel building, float cellSize, PowerStatusService powerStatusService)
         {
             _building = building;
             gameObject.name = $"Building_{building.InstanceId}_{building.Definition.Type}";
@@ -35,6 +41,14 @@ namespace FactoryColony
             inventoryVisualObject.transform.SetParent(transform, false);
             _inventoryVisualView = inventoryVisualObject.AddComponent<BuildingInventoryVisualView>();
             _inventoryVisualView.Initialize(building, cellSize);
+
+            if (powerStatusService != null)
+            {
+                GameObject powerStatusObject = new GameObject("PowerStatusRoot");
+                powerStatusObject.transform.SetParent(transform, false);
+                _powerStatusView = powerStatusObject.AddComponent<BuildingPowerStatusView>();
+                _powerStatusView.Initialize(building, powerStatusService, cellSize);
+            }
         }
 
         public void RefreshInventoryVisual()
@@ -42,6 +56,14 @@ namespace FactoryColony
             if (_inventoryVisualView != null)
             {
                 _inventoryVisualView.Refresh();
+            }
+        }
+
+        public void RefreshPowerStatusVisual()
+        {
+            if (_powerStatusView != null)
+            {
+                _powerStatusView.Refresh();
             }
         }
 

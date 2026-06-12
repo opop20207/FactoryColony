@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -12,8 +13,13 @@ namespace FactoryColony
 
         private GridModel _gridModel;
         private BaseInventoryModel _baseInventory;
+        private PlayerInventoryModel _playerInventory;
         private GoalTracker _goalTracker;
+        private ResearchSystem _researchSystem;
+        private ResearchStateModel _researchState;
+        private ResearchAccessService _researchAccessService;
         private FactorySimulation _simulation;
+        private PowerStatusService _powerStatusService;
         private GridView _gridView;
         private BuildingViewFactory _buildingViewFactory;
         private GridMouseSelector _gridMouseSelector;
@@ -25,10 +31,17 @@ namespace FactoryColony
         private SimulationTickRunner _tickRunner;
         private StorageCollectionController _storageCollectionController;
         private PlayerInteractionController _playerInteractionController;
+        private PlayerInventoryHud _playerInventoryHud;
         private FactoryDebugHud _debugHud;
         private GoalHudView _goalHudView;
         private GoalUpdateController _goalUpdateController;
+        private ResearchPanelController _researchPanelController;
+        private ResearchPanelView _researchPanelView;
+        private RecipeSelectionPanelController _recipeSelectionPanelController;
+        private RecipeSelectionPanelView _recipeSelectionPanelView;
+        private BuildMenuController _buildMenuController;
         private ResourceVisualRefreshController _resourceVisualRefreshController;
+        private IReadOnlyDictionary<string, ResearchDefinition> _researchDefinitions;
         private IReadOnlyDictionary<string, BuildingDefinition> _definitionsById;
         private RecipeCatalog _recipeCatalog;
         private float _cellSize = 1f;
@@ -45,8 +58,13 @@ namespace FactoryColony
         public void Initialize(
             GridModel gridModel,
             BaseInventoryModel baseInventory,
+            PlayerInventoryModel playerInventory,
             GoalTracker goalTracker,
+            ResearchSystem researchSystem,
+            ResearchStateModel researchState,
+            ResearchAccessService researchAccessService,
             FactorySimulation simulation,
+            PowerStatusService powerStatusService,
             GridView gridView,
             BuildingViewFactory buildingViewFactory,
             GridMouseSelector gridMouseSelector,
@@ -60,16 +78,28 @@ namespace FactoryColony
             FactoryDebugHud debugHud,
             GoalHudView goalHudView,
             GoalUpdateController goalUpdateController,
+            ResearchPanelView researchPanelView,
+            ResearchPanelController researchPanelController,
+            BuildMenuController buildMenuController,
             ResourceVisualRefreshController resourceVisualRefreshController,
             PlayerInteractionController playerInteractionController,
+            PlayerInventoryHud playerInventoryHud,
+            RecipeSelectionPanelView recipeSelectionPanelView,
+            RecipeSelectionPanelController recipeSelectionPanelController,
             IReadOnlyDictionary<string, BuildingDefinition> definitionsById,
+            IReadOnlyDictionary<string, ResearchDefinition> researchDefinitions,
             RecipeCatalog recipeCatalog,
             float cellSize)
         {
             _gridModel = gridModel;
             _baseInventory = baseInventory;
+            _playerInventory = playerInventory;
             _goalTracker = goalTracker;
+            _researchSystem = researchSystem;
+            _researchState = researchState;
+            _researchAccessService = researchAccessService;
             _simulation = simulation;
+            _powerStatusService = powerStatusService;
             _gridView = gridView;
             _buildingViewFactory = buildingViewFactory;
             _gridMouseSelector = gridMouseSelector;
@@ -83,9 +113,16 @@ namespace FactoryColony
             _debugHud = debugHud;
             _goalHudView = goalHudView;
             _goalUpdateController = goalUpdateController;
+            _researchPanelView = researchPanelView;
+            _researchPanelController = researchPanelController;
+            _buildMenuController = buildMenuController;
             _resourceVisualRefreshController = resourceVisualRefreshController;
             _playerInteractionController = playerInteractionController;
+            _playerInventoryHud = playerInventoryHud;
+            _recipeSelectionPanelView = recipeSelectionPanelView;
+            _recipeSelectionPanelController = recipeSelectionPanelController;
             _definitionsById = definitionsById;
+            _researchDefinitions = researchDefinitions;
             _recipeCatalog = recipeCatalog;
             _cellSize = cellSize > 0f ? cellSize : 1f;
             SavePath = Path.Combine(Application.persistentDataPath, "factory_debug_save.json");
@@ -115,7 +152,7 @@ namespace FactoryColony
 
             try
             {
-                FactorySaveData saveData = _saveGameService.CreateSaveData(_gridModel, _baseInventory, _goalTracker);
+                FactorySaveData saveData = _saveGameService.CreateSaveData(_gridModel, _baseInventory, _goalTracker, _researchState, _playerInventory);
                 _saveGameService.SaveToFile(saveData, SavePath);
                 LastSaveResult = "Saved to: " + SavePath;
             }
@@ -141,18 +178,33 @@ namespace FactoryColony
                 FactorySaveLoader saveLoader = _saveLoader ?? new FactorySaveLoader(message => Debug.LogWarning(message));
                 GridModel restoredGrid = saveLoader.RestoreGrid(saveData, definitionsById);
                 BaseInventoryModel restoredBaseInventory = saveLoader.RestoreBaseInventory(saveData);
+                PlayerInventoryModel restoredPlayerInventory = saveLoader.RestorePlayerInventory(saveData);
                 GoalTracker restoredGoalTracker = new GoalTracker(restoredBaseInventory, DebugGoalDefinitions.CreateGoals());
                 saveLoader.RestoreGoals(saveData, restoredGoalTracker);
+                ResearchStateModel restoredResearchState = new ResearchStateModel();
+                saveLoader.RestoreResearch(saveData, restoredResearchState);
+                ResearchSystem restoredResearchSystem = new ResearchSystem(_researchDefinitions, restoredResearchState, restoredBaseInventory);
+                ResearchAccessService restoredResearchAccessService = new ResearchAccessService(restoredGrid);
 
                 FactorySimulation restoredSimulation = new FactorySimulation(restoredGrid, _recipeCatalog);
+                PowerStatusService restoredPowerStatusService = new PowerStatusService(restoredGrid, restoredSimulation);
                 StorageCollector restoredStorageCollector = new StorageCollector(restoredGrid, restoredBaseInventory);
+                RecipeSelectionService restoredRecipeSelectionService = new RecipeSelectionService(
+                    _recipeCatalog.Recipes.ToDictionary(recipe => recipe.Id),
+                    restoredResearchSystem);
 
                 RebindDebugScene(
                     restoredGrid,
                     restoredBaseInventory,
+                    restoredPlayerInventory,
                     restoredGoalTracker,
+                    restoredResearchSystem,
+                    restoredResearchState,
+                    restoredResearchAccessService,
                     restoredSimulation,
-                    restoredStorageCollector);
+                    restoredPowerStatusService,
+                    restoredStorageCollector,
+                    restoredRecipeSelectionService);
 
                 LastLoadResult = "Load Success";
             }
@@ -166,14 +218,25 @@ namespace FactoryColony
         private void RebindDebugScene(
             GridModel restoredGrid,
             BaseInventoryModel restoredBaseInventory,
+            PlayerInventoryModel restoredPlayerInventory,
             GoalTracker restoredGoalTracker,
+            ResearchSystem restoredResearchSystem,
+            ResearchStateModel restoredResearchState,
+            ResearchAccessService restoredResearchAccessService,
             FactorySimulation restoredSimulation,
-            StorageCollector restoredStorageCollector)
+            PowerStatusService restoredPowerStatusService,
+            StorageCollector restoredStorageCollector,
+            RecipeSelectionService restoredRecipeSelectionService)
         {
             _gridModel = restoredGrid;
             _baseInventory = restoredBaseInventory;
+            _playerInventory = restoredPlayerInventory;
             _goalTracker = restoredGoalTracker;
+            _researchSystem = restoredResearchSystem;
+            _researchState = restoredResearchState;
+            _researchAccessService = restoredResearchAccessService;
             _simulation = restoredSimulation;
+            _powerStatusService = restoredPowerStatusService;
 
             if (_placementPreview != null)
             {
@@ -192,6 +255,7 @@ namespace FactoryColony
 
             if (_buildingViewFactory != null)
             {
+                _buildingViewFactory.SetPowerStatusService(restoredPowerStatusService);
                 _buildingViewFactory.Build(restoredGrid, _cellSize);
             }
 
@@ -217,6 +281,11 @@ namespace FactoryColony
 
             if (_detailPanelController != null)
             {
+                if (_detailPanelView != null)
+                {
+                    _detailPanelView.Initialize(restoredRecipeSelectionService, restoredPowerStatusService);
+                }
+
                 _detailPanelController.Initialize(_selectionController, _detailPanelView);
             }
 
@@ -227,7 +296,19 @@ namespace FactoryColony
 
             if (_playerInteractionController != null)
             {
-                _playerInteractionController.Initialize(restoredGrid, _selectionController, _storageCollectionController, _cellSize);
+                PlayerInventoryTransferService transferService = new PlayerInventoryTransferService(restoredPlayerInventory, restoredBaseInventory);
+                _playerInteractionController.Initialize(
+                    restoredGrid,
+                    _selectionController,
+                    _storageCollectionController,
+                    transferService,
+                    _resourceVisualRefreshController,
+                    _cellSize);
+            }
+
+            if (_playerInventoryHud != null)
+            {
+                _playerInventoryHud.Initialize(restoredPlayerInventory, _playerInteractionController);
             }
 
             if (_tickRunner != null)
@@ -243,6 +324,26 @@ namespace FactoryColony
             if (_goalUpdateController != null)
             {
                 _goalUpdateController.Initialize(restoredGoalTracker, _tickRunner, _storageCollectionController);
+            }
+
+            if (_researchPanelController != null)
+            {
+                _researchPanelController.Initialize(_researchPanelView, restoredResearchSystem, _buildMenuController, restoredResearchAccessService);
+            }
+
+            if (_recipeSelectionPanelController != null)
+            {
+                _recipeSelectionPanelController.Initialize(
+                    _selectionController,
+                    _recipeSelectionPanelView,
+                    restoredRecipeSelectionService,
+                    _detailPanelController,
+                    _resourceVisualRefreshController);
+            }
+
+            if (_buildMenuController != null)
+            {
+                _buildMenuController.Refresh();
             }
 
             if (_resourceVisualRefreshController != null)
@@ -261,7 +362,11 @@ namespace FactoryColony
                     _selectionController,
                     restoredBaseInventory,
                     _storageCollectionController,
-                    this);
+                    this,
+                    restoredResearchSystem,
+                    _researchPanelController,
+                    restoredPlayerInventory,
+                    restoredPowerStatusService);
             }
         }
 

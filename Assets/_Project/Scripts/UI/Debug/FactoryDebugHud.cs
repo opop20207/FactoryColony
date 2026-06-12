@@ -30,6 +30,10 @@ namespace FactoryColony
         private BaseInventoryModel _baseInventory;
         private StorageCollectionController _storageCollectionController;
         private FactoryDebugSaveController _saveController;
+        private ResearchSystem _researchSystem;
+        private ResearchPanelController _researchPanelController;
+        private PlayerInventoryModel _playerInventory;
+        private PowerStatusService _powerStatusService;
         private PowerModel _powerSnapshot;
         private GUIStyle _panelStyle;
         private GUIStyle _labelStyle;
@@ -127,6 +131,93 @@ namespace FactoryColony
             StorageCollectionController storageCollectionController,
             FactoryDebugSaveController saveController)
         {
+            Initialize(
+                simulation,
+                runner,
+                selector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                storageCollectionController,
+                saveController,
+                null,
+                null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory,
+            StorageCollectionController storageCollectionController,
+            FactoryDebugSaveController saveController,
+            ResearchSystem researchSystem,
+            ResearchPanelController researchPanelController)
+        {
+            Initialize(
+                simulation,
+                runner,
+                selector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                storageCollectionController,
+                saveController,
+                researchSystem,
+                researchPanelController,
+                null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory,
+            StorageCollectionController storageCollectionController,
+            FactoryDebugSaveController saveController,
+            ResearchSystem researchSystem,
+            ResearchPanelController researchPanelController,
+            PlayerInventoryModel playerInventory)
+        {
+            Initialize(
+                simulation,
+                runner,
+                selector,
+                placementPreview,
+                placementController,
+                buildingSelectionController,
+                baseInventory,
+                storageCollectionController,
+                saveController,
+                researchSystem,
+                researchPanelController,
+                playerInventory,
+                null);
+        }
+
+        public void Initialize(
+            FactorySimulation simulation,
+            SimulationTickRunner runner,
+            GridMouseSelector selector,
+            BuildingPlacementPreview placementPreview,
+            BuildingPlacementController placementController,
+            BuildingSelectionController buildingSelectionController,
+            BaseInventoryModel baseInventory,
+            StorageCollectionController storageCollectionController,
+            FactoryDebugSaveController saveController,
+            ResearchSystem researchSystem,
+            ResearchPanelController researchPanelController,
+            PlayerInventoryModel playerInventory,
+            PowerStatusService powerStatusService)
+        {
             if (_runner != null)
             {
                 _runner.OnTickExecuted -= HandleTickExecuted;
@@ -146,6 +237,10 @@ namespace FactoryColony
             _baseInventory = baseInventory;
             _storageCollectionController = storageCollectionController;
             _saveController = saveController;
+            _researchSystem = researchSystem;
+            _researchPanelController = researchPanelController;
+            _playerInventory = playerInventory;
+            _powerStatusService = powerStatusService;
 
             if (_runner != null)
             {
@@ -193,7 +288,9 @@ namespace FactoryColony
                 return;
             }
 
-            _powerSnapshot = _simulation.CalculatePower();
+            _powerSnapshot = _powerStatusService != null
+                ? _powerStatusService.GetPowerModel()
+                : _simulation.CalculatePower();
             IReadOnlyDictionary<ResourceType, int> storedResources = _simulation.GetStoredResources();
 
             foreach (KeyValuePair<ResourceType, int> pair in storedResources)
@@ -216,7 +313,8 @@ namespace FactoryColony
                 return;
             }
 
-            PowerModel power = _powerSnapshot ?? _simulation.CalculatePower();
+            PowerModel power = _powerSnapshot
+                ?? (_powerStatusService != null ? _powerStatusService.GetPowerModel() : _simulation.CalculatePower());
 
             GUILayout.Label("Factory Debug HUD", _labelStyle);
             GUILayout.Space(4f);
@@ -237,17 +335,21 @@ namespace FactoryColony
             GUILayout.Label("Hovered Building Inventory: " + GetHoveredBuildingInventoryText(), _labelStyle);
             GUILayout.Label("Last Removal Result: " + GetLastRemovalResultText(), _labelStyle);
             GUILayout.Label("Press C: Collect Storage Resources", _labelStyle);
+            GUILayout.Label("Research: T | Completed: " + GetCompletedResearchCountText(), _labelStyle);
+            GUILayout.Label("Last Research Result: " + GetLastResearchResultText(), _labelStyle);
+            GUILayout.Label("Player Inventory: " + GetPlayerInventoryTotalText(), _labelStyle);
             GUILayout.Label("WASD/Arrows: Player | Shift+Move: Camera | Wheel: Zoom | F: Follow", _labelStyle);
-            GUILayout.Label("R Rotate | LMB Place | RMB Select | Del Remove | C Collect | F5/F9 Save/Load", _labelStyle);
+            GUILayout.Label("R Rotate | Y Recipes | LMB Place | RMB Select | Del Remove | C Collect | Q Take | B Deposit | F5/F9 Save/Load", _labelStyle);
             GUILayout.Label("Save Path: " + GetSavePathText(), _labelStyle);
             GUILayout.Label("Last Save Result: " + GetLastSaveResultText(), _labelStyle);
             GUILayout.Label("Last Load Result: " + GetLastLoadResultText(), _labelStyle);
             GUILayout.Label("Last Collection Result: " + GetLastCollectionResultText(), _labelStyle);
             GUILayout.Space(6f);
-            GUILayout.Label("Power Produced: " + power.ProducedPower, _labelStyle);
-            GUILayout.Label("Power Consumed: " + power.ConsumedPower, _labelStyle);
+            GUILayout.Label("Power: " + power.ProducedPower + " / " + power.ConsumedPower, _labelStyle);
+            GUILayout.Label("Power Status: " + GetPowerStatusText(power), _labelStyle);
             GUILayout.Label("Power Available: " + power.AvailablePower, _labelStyle);
-            GUILayout.Label("Has Enough Power: " + power.HasEnoughPower, _labelStyle);
+            GUILayout.Label("Generators: " + GetPowerProducerCountText(), _labelStyle);
+            GUILayout.Label("Consumers: " + GetPowerConsumerCountText(), _labelStyle);
             GUILayout.Space(6f);
             GUILayout.Label("Base Inventory", _labelStyle);
             GUILayout.Label("IronPlate: " + GetBaseInventoryAmount(ResourceType.IronPlate), _labelStyle);
@@ -450,6 +552,50 @@ namespace FactoryColony
             }
 
             return _storageCollectionController.LastCollectionResult;
+        }
+
+        private string GetCompletedResearchCountText()
+        {
+            return _researchSystem != null ? _researchSystem.CompletedCount.ToString() : "N/A";
+        }
+
+        private string GetLastResearchResultText()
+        {
+            return _researchPanelController != null ? _researchPanelController.LastResearchResult : "N/A";
+        }
+
+        private string GetPlayerInventoryTotalText()
+        {
+            if (_playerInventory == null)
+            {
+                return "N/A";
+            }
+
+            return _playerInventory.TotalAmount + " / " + _playerInventory.MaxTotalAmount;
+        }
+
+        private static string GetPowerStatusText(PowerModel power)
+        {
+            if (power == null)
+            {
+                return "N/A";
+            }
+
+            return power.HasEnoughPower ? "OK" : "LOW POWER";
+        }
+
+        private string GetPowerProducerCountText()
+        {
+            return _powerStatusService != null
+                ? _powerStatusService.GetPowerProducerCount().ToString()
+                : "N/A";
+        }
+
+        private string GetPowerConsumerCountText()
+        {
+            return _powerStatusService != null
+                ? _powerStatusService.GetPowerConsumerCount().ToString()
+                : "N/A";
         }
 
         private string GetSavePathText()
